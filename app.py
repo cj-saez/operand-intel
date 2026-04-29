@@ -455,6 +455,175 @@ You have deep knowledge of search fund investing, preferred return calculations,
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
 
+# ── Deal Universe (Company DB) ─────────────────────────────────────────────────
+
+UNIVERSE_SCHEMA = """
+TABLE: deal_companies
+COLUMNS:
+  id, name (company name), sector, industry, sub_industry,
+  state (2-letter), city, founded_year, employees (integer),
+  revenue (dollars), ebitda (dollars), ebitda_margin (percent, e.g. 18.5),
+  asking_price (dollars), revenue_multiple, ebitda_multiple,
+  status (PROSPECT|PASSED|ACTIVE DILIGENCE|LOI SIGNED|ACQUIRED|DEAD),
+  source (how company was sourced),
+  business_description,
+  owner_name, owner_age (integer), owner_gender (Male|Female),
+  owner_ethnicity (White|Hispanic / Latino|Black / African American|Asian|South Asian|Middle Eastern|Mixed / Other|Not Disclosed),
+  owner_undergrad_school (university name), owner_undergrad_major,
+  owner_grad_school (business school full name, e.g. "University of Chicago (Booth)"),
+  owner_grad_degree (MBA|JD|MS|etc),
+  owner_years_experience (integer), owner_prev_companies (semicolon-separated),
+  owner_bio, notes, created_at
+"""
+
+@app.route('/api/universe')
+def get_universe():
+    conn = get_db()
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 50))
+    sector = request.args.get('sector', '')
+    status = request.args.get('status', '')
+    state = request.args.get('state', '')
+    q = request.args.get('q', '')
+
+    where, params = [], []
+    if sector:
+        where.append('sector=?'); params.append(sector)
+    if status:
+        where.append('status=?'); params.append(status)
+    if state:
+        where.append('state=?'); params.append(state)
+    if q:
+        where.append('''(name LIKE ? OR owner_name LIKE ? OR sector LIKE ?
+            OR industry LIKE ? OR city LIKE ? OR owner_undergrad_school LIKE ?
+            OR owner_grad_school LIKE ? OR owner_prev_companies LIKE ?)''')
+        lq = f'%{q}%'
+        params.extend([lq]*8)
+
+    where_sql = ('WHERE ' + ' AND '.join(where)) if where else ''
+    total = conn.execute(f'SELECT COUNT(*) FROM deal_companies {where_sql}', params).fetchone()[0]
+    rows = conn.execute(
+        f'SELECT * FROM deal_companies {where_sql} ORDER BY id LIMIT ? OFFSET ?',
+        params + [per_page, (page-1)*per_page]
+    ).fetchall()
+    conn.close()
+    return jsonify({'total': total, 'page': page, 'per_page': per_page,
+                    'rows': [dict(r) for r in rows]})
+
+
+@app.route('/api/universe/<int:company_id>')
+def get_universe_company(company_id):
+    conn = get_db()
+    row = conn.execute('SELECT * FROM deal_companies WHERE id=?', (company_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'error': 'Not found'}), 404
+    return jsonify(dict(row))
+
+
+@app.route('/api/universe/query', methods=['POST'])
+def universe_query():
+    """Natural language → SQL → results → AI summary, streamed."""
+    data = request.get_json(silent=True) or {}
+    question = data.get('question', '').strip()
+    if not question:
+        return jsonify({'error': 'No question'}), 400
+
+    # Step 1: Convert question to SQL (non-streaming)
+    sql_prompt = f"""You are a SQL expert. Convert the user's natural language question into a SQLite query against the deal_companies table.
+
+{UNIVERSE_SCHEMA}
+
+Rules:
+- Return ONLY the SQL query, nothing else, no markdown fences
+- Use LIKE for partial text matches (case-insensitive via LOWER())
+- For school questions use LOWER(owner_grad_school) LIKE '%booth%' style matching
+- For percentage questions use COUNT(*) * 100.0 / (SELECT COUNT(*) FROM deal_companies) AS pct
+- Always LIMIT to 200 rows max unless it's an aggregation query
+- For "what percent" questions, return a percentage value
+- Never use DROP, DELETE, UPDATE, INSERT — read-only queries only
+
+User question: {question}
+
+SQL:"""
+
+    try:
+        sql_resp = client.messages.create(
+            model='claude-sonnet-4-6',
+            max_tokens=400,
+            messages=[{'role': 'user', 'content': sql_prompt}]
+        )
+        sql = sql_resp.content[0].text.strip()
+        sql = re.sub(r'^```(?:sql)?\s*', '', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'\s*```$', '', sql)
+        sql = sql.strip().rstrip(';')
+
+        # Safety check
+        if any(kw in sql.upper() for kw in ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER']):
+            return jsonify({'error': 'Unsafe SQL blocked'}), 400
+
+        conn = get_db()
+        try:
+            cursor = conn.execute(sql)
+            cols = [d[0] for d in cursor.description]
+            rows = cursor.fetchall()
+            results = [dict(zip(cols, r)) for r in rows]
+        except Exception as e:
+            conn.close()
+            return jsonify({'error': f'SQL error: {e}', 'sql': sql}), 400
+        conn.close()
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    # Step 2: Stream the AI summary
+    summary_prompt = f"""The user asked: "{question}"
+
+The SQL query was:
+{sql}
+
+Query results ({len(results)} rows):
+{json.dumps(results[:50], indent=2)}
+
+Provide a concise, insightful answer to the user's question using the data. Use specific numbers and percentages. Format nicely with markdown if helpful."""
+
+    def stream_answer():
+        yield f"data: {json.dumps({'sql': sql, 'row_count': len(results)})}\n\n"
+        try:
+            with client.messages.stream(
+                model='claude-sonnet-4-6',
+                max_tokens=800,
+                messages=[{'role': 'user', 'content': summary_prompt}]
+            ) as stream:
+                for text in stream.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream_answer()), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@app.route('/api/universe/stats')
+def universe_stats():
+    conn = get_db()
+    total = conn.execute('SELECT COUNT(*) FROM deal_companies').fetchone()[0]
+    if total == 0:
+        conn.close()
+        return jsonify({'total': 0})
+    by_sector = [dict(r) for r in conn.execute(
+        'SELECT sector, COUNT(*) as n FROM deal_companies GROUP BY sector ORDER BY n DESC').fetchall()]
+    by_status = [dict(r) for r in conn.execute(
+        'SELECT status, COUNT(*) as n FROM deal_companies GROUP BY status ORDER BY n DESC').fetchall()]
+    by_grad = [dict(r) for r in conn.execute(
+        '''SELECT owner_grad_school, COUNT(*) as n FROM deal_companies
+        WHERE owner_grad_school IS NOT NULL
+        GROUP BY owner_grad_school ORDER BY n DESC LIMIT 15''').fetchall()]
+    conn.close()
+    return jsonify({'total': total, 'by_sector': by_sector, 'by_status': by_status, 'by_grad': by_grad})
+
+
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 5001))

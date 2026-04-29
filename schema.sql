@@ -56,6 +56,43 @@ CREATE TABLE IF NOT EXISTS cash_flows (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS deal_companies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- Company
+    name TEXT NOT NULL,
+    sector TEXT,
+    industry TEXT,
+    sub_industry TEXT,
+    state TEXT,
+    city TEXT,
+    founded_year INTEGER,
+    employees INTEGER,
+    revenue REAL,
+    ebitda REAL,
+    ebitda_margin REAL,
+    asking_price REAL,
+    revenue_multiple REAL,
+    ebitda_multiple REAL,
+    status TEXT DEFAULT 'PROSPECT',
+    source TEXT,
+    business_description TEXT,
+    -- Owner / CEO
+    owner_name TEXT,
+    owner_age INTEGER,
+    owner_gender TEXT,
+    owner_ethnicity TEXT,
+    owner_undergrad_school TEXT,
+    owner_undergrad_major TEXT,
+    owner_grad_school TEXT,
+    owner_grad_degree TEXT,
+    owner_years_experience INTEGER,
+    owner_prev_companies TEXT,
+    owner_bio TEXT,
+    -- Meta
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS searchers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     -- Identity

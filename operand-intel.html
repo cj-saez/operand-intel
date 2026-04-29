@@ -219,6 +219,10 @@ td strong{color:var(--text);font-weight:600}
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         Searches
       </div>
+      <div class="nav-item" onclick="showPage('universe');initUniverse()" id="nav-universe">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+        Universe
+      </div>
       <div class="nav-section">Tools</div>
       <div class="nav-item" onclick="showPage('ppm')" id="nav-ppm">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -354,6 +358,76 @@ td strong{color:var(--text);font-weight:600}
     </div>
 
     <!-- ── PPM INGESTION ── -->
+    <!-- ── UNIVERSE ── -->
+    <div class="page" id="page-universe">
+      <div class="page-hdr" style="margin-bottom:0">
+        <h1>Company Universe</h1>
+        <p id="universe-count-label">Loading…</p>
+      </div>
+
+      <!-- AI Query Bar -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px;margin-bottom:18px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">AI Search — Ask Anything</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input id="universe-q" type="text" placeholder='e.g. "What % of CEOs went to Chicago Booth?" or "Show me healthcare companies in Texas with EBITDA over $1M"'
+            style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:9px 14px;color:var(--text);font-family:inherit;font-size:13px;outline:none"
+            onkeydown="if(event.key==='Enter')runUniverseQuery()">
+          <button class="btn btn-primary" onclick="runUniverseQuery()" id="universe-query-btn">Ask</button>
+        </div>
+        <div id="universe-ai-sql" style="display:none;font-size:11px;color:var(--text3);font-family:monospace;background:var(--bg);padding:6px 10px;border-radius:4px;margin-bottom:8px;white-space:pre-wrap"></div>
+        <div id="universe-ai-answer" style="font-size:13px;color:var(--text2);line-height:1.65;min-height:0"></div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap" id="universe-suggestions">
+          <button class="btn btn-ghost" style="font-size:11px" onclick="setQ('What percent of CEOs have an MBA from Chicago Booth?')">% Booth MBAs</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="setQ('What are the top 5 undergrad schools in my universe?')">Top undergrads</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="setQ('Show me all female CEOs in healthcare services')">Female healthcare CEOs</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="setQ('What percent of owners previously worked at McKinsey or Bain or BCG?')">Consulting background %</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="setQ('Average EBITDA multiple by sector')">Multiples by sector</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="setQ('How many companies are in Texas vs Florida vs Illinois?')">State breakdown</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="setQ('What is the average owner age by sector?')">Avg age by sector</button>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="setQ('Show active diligence and LOI signed companies')">Active pipeline</button>
+        </div>
+      </div>
+
+      <!-- Filters + Table -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+        <input id="univ-search" type="text" placeholder="Filter by name, owner, city, school…"
+          style="flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none"
+          oninput="loadUniverseTable(1)">
+        <select id="univ-sector" onchange="loadUniverseTable(1)"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+          <option value="">All Sectors</option>
+          <option>Business Services</option><option>Healthcare Services</option>
+          <option>Industrial Services</option><option>Technology / SaaS</option>
+          <option>Specialty Manufacturing</option><option>Distribution</option>
+          <option>Construction &amp; Trades</option><option>Consumer Services</option>
+          <option>Education</option><option>Logistics &amp; Transportation</option>
+          <option>Environmental Services</option><option>Financial Services</option>
+        </select>
+        <select id="univ-status" onchange="loadUniverseTable(1)"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+          <option value="">All Statuses</option>
+          <option>PROSPECT</option><option>PASSED</option><option>ACTIVE DILIGENCE</option>
+          <option>LOI SIGNED</option><option>ACQUIRED</option><option>DEAD</option>
+        </select>
+        <select id="univ-state" onchange="loadUniverseTable(1)"
+          style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+          <option value="">All States</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>Company</th><th>Sector</th><th>State</th>
+            <th>Revenue</th><th>EBITDA</th><th>EV/EBITDA</th>
+            <th>Owner</th><th>Age</th><th>Grad School</th><th>Status</th>
+          </tr></thead>
+          <tbody id="universe-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:12px" id="universe-pagination"></div>
+    </div>
+
     <div class="page" id="page-ppm">
       <div class="page-hdr">
         <h1>PPM Ingestion</h1>
@@ -393,6 +467,17 @@ td strong{color:var(--text);font-weight:600}
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Universe Detail Modal -->
+<div class="modal-overlay" id="universe-detail-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:760px;width:90vw">
+    <div class="modal-header">
+      <span style="font-size:15px;font-weight:600">Company Profile</span>
+      <button class="modal-close" onclick="closeModal('universe-detail-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="universe-detail-body"></div>
   </div>
 </div>
 
@@ -445,7 +530,7 @@ async function loadSearchers() {
 const PAGE_TITLES = {
   portfolio: 'Portfolio Overview', funds: 'Funds', 'fund-detail': 'Fund Detail',
   companies: 'Companies', 'company-detail': 'Company', searches: 'Searches',
-  searcher: 'Searcher Profile', ppm: 'PPM Ingestion', ai: 'AI Analyst'
+  searcher: 'Searcher Profile', universe: 'Company Universe', ppm: 'PPM Ingestion', ai: 'AI Analyst'
 };
 
 function showPage(name) {
@@ -1052,6 +1137,170 @@ async function saveNewSearcher() {
     renderSearchesPage();
     closeModal('new-searcher-modal');
   }
+}
+
+// ── Universe ──────────────────────────────────────────────────────────────────
+let univPage = 1, univTotal = 0, univInited = false;
+
+const US_STATES = ['AL','AR','AZ','CA','CO','FL','GA','IL','IN','KS','KY','LA','MD','MI','MN',
+  'MO','NC','NE','NV','NY','OH','OK','PA','SC','TN','TX','UT','VA','WA','WI'];
+
+async function initUniverse() {
+  if (univInited) return;
+  univInited = true;
+  // Populate state filter
+  const sel = document.getElementById('univ-state');
+  US_STATES.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); });
+  // Load stats
+  const r = await fetch('/api/universe/stats');
+  const stats = await r.json();
+  if (stats.total === 0) {
+    document.getElementById('universe-count-label').innerHTML =
+      '<span style="color:var(--amber)">No data yet — run <code>python3 generate_universe.py</code> to generate 3,000 companies.</span>';
+    return;
+  }
+  document.getElementById('universe-count-label').textContent = `${stats.total.toLocaleString()} companies in database`;
+  loadUniverseTable(1);
+}
+
+async function loadUniverseTable(page) {
+  univPage = page;
+  const q = document.getElementById('univ-search').value;
+  const sector = document.getElementById('univ-sector').value;
+  const status = document.getElementById('univ-status').value;
+  const state = document.getElementById('univ-state').value;
+  const params = new URLSearchParams({ page, per_page: 50 });
+  if (q) params.set('q', q);
+  if (sector) params.set('sector', sector);
+  if (status) params.set('status', status);
+  if (state) params.set('state', state);
+
+  const r = await fetch('/api/universe?' + params);
+  const data = await r.json();
+  univTotal = data.total;
+
+  const STAT_COLORS = { 'PROSPECT':'blue','PASSED':'gray','ACTIVE DILIGENCE':'amber',
+    'LOI SIGNED':'amber','ACQUIRED':'green','DEAD':'red' };
+  document.getElementById('universe-tbody').innerHTML = data.rows.map(c => `
+    <tr onclick="showUniverseDetail(${c.id})" style="cursor:pointer">
+      <td><div style="font-weight:500;color:var(--text)">${c.name}</div><div style="font-size:11px;color:var(--text3)">${c.city || '—'}, ${c.state || '—'} · ${c.industry || c.sector || '—'}</div></td>
+      <td><span style="font-size:11px;color:var(--text2)">${c.sector || '—'}</span></td>
+      <td>${c.state || '—'}</td>
+      <td>${c.revenue ? '$' + (c.revenue/1e6).toFixed(1) + 'M' : '—'}</td>
+      <td>${c.ebitda ? '$' + (c.ebitda/1e6).toFixed(1) + 'M' : '—'}</td>
+      <td>${c.ebitda_multiple ? c.ebitda_multiple.toFixed(1) + 'x' : '—'}</td>
+      <td><div style="font-weight:500">${c.owner_name || '—'}</div><div style="font-size:11px;color:var(--text3)">${c.owner_gender || ''} · ${c.owner_ethnicity || ''}</div></td>
+      <td>${c.owner_age || '—'}</td>
+      <td style="max-width:160px"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px">${c.owner_grad_school || '—'}</div></td>
+      <td><span class="badge ${STAT_COLORS[c.status]||'gray'}">${c.status || '—'}</span></td>
+    </tr>`).join('');
+
+  // Pagination
+  const pages = Math.ceil(univTotal / 50);
+  const pg = document.getElementById('universe-pagination');
+  pg.innerHTML = `<span style="font-size:12px;color:var(--text3)">${univTotal.toLocaleString()} results</span>`;
+  if (pages > 1) {
+    if (page > 1) pg.innerHTML += `<button class="btn btn-ghost" style="font-size:12px" onclick="loadUniverseTable(${page-1})">← Prev</button>`;
+    pg.innerHTML += `<span style="font-size:12px;color:var(--text3)">Page ${page} / ${pages}</span>`;
+    if (page < pages) pg.innerHTML += `<button class="btn btn-ghost" style="font-size:12px" onclick="loadUniverseTable(${page+1})">Next →</button>`;
+  }
+}
+
+function setQ(q) {
+  document.getElementById('universe-q').value = q;
+  runUniverseQuery();
+}
+
+async function runUniverseQuery() {
+  const question = document.getElementById('universe-q').value.trim();
+  if (!question) return;
+  const btn = document.getElementById('universe-query-btn');
+  const ansEl = document.getElementById('universe-ai-answer');
+  const sqlEl = document.getElementById('universe-ai-sql');
+  btn.disabled = true; btn.textContent = '…';
+  ansEl.innerHTML = '<span class="spinner"></span>';
+  sqlEl.style.display = 'none'; sqlEl.textContent = '';
+
+  try {
+    const r = await fetch('/api/universe/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '', full = '', gotMeta = false;
+    ansEl.innerHTML = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') break;
+        try {
+          const d = JSON.parse(payload);
+          if (!gotMeta && d.sql) {
+            gotMeta = true;
+            sqlEl.textContent = `SQL: ${d.sql}  (${d.row_count} rows)`;
+            sqlEl.style.display = 'block';
+          } else if (d.text) {
+            full += d.text;
+            ansEl.innerHTML = renderMd(full);
+          } else if (d.error) {
+            ansEl.innerHTML = `<span style="color:var(--red)">${d.error}</span>`;
+          }
+        } catch {}
+      }
+    }
+  } catch (e) { ansEl.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`; }
+  btn.disabled = false; btn.textContent = 'Ask';
+}
+
+async function showUniverseDetail(id) {
+  const r = await fetch(`/api/universe/${id}`);
+  const c = await r.json();
+  const STAT_COLORS = { 'PROSPECT':'blue','PASSED':'gray','ACTIVE DILIGENCE':'amber',
+    'LOI SIGNED':'amber','ACQUIRED':'green','DEAD':'red' };
+  const modal = document.getElementById('universe-detail-modal');
+  document.getElementById('universe-detail-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Company</div>
+        ${row2('Name', c.name)} ${row2('Sector', c.sector)} ${row2('Industry', c.industry)}
+        ${row2('Location', `${c.city}, ${c.state}`)} ${row2('Founded', c.founded_year)}
+        ${row2('Employees', c.employees?.toLocaleString())} ${row2('Source', c.source)}
+        ${row2('Status', `<span class="badge ${STAT_COLORS[c.status]||'gray'}">${c.status}</span>`)}
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Financials</div>
+        ${row2('Revenue', c.revenue ? '$'+(c.revenue/1e6).toFixed(2)+'M' : '—')}
+        ${row2('EBITDA', c.ebitda ? '$'+(c.ebitda/1e6).toFixed(2)+'M' : '—')}
+        ${row2('EBITDA Margin', c.ebitda_margin ? c.ebitda_margin.toFixed(1)+'%' : '—')}
+        ${row2('Asking Price', c.asking_price ? '$'+(c.asking_price/1e6).toFixed(2)+'M' : '—')}
+        ${row2('Rev Multiple', c.revenue_multiple ? c.revenue_multiple.toFixed(2)+'x' : '—')}
+        ${row2('EBITDA Multiple', c.ebitda_multiple ? c.ebitda_multiple.toFixed(1)+'x' : '—')}
+      </div>
+    </div>
+    <div style="background:var(--surface2);border-radius:var(--r);padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Owner / CEO — ${c.owner_name || '—'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${row2('Gender', c.owner_gender)} ${row2('Age', c.owner_age)}
+        ${row2('Ethnicity', c.owner_ethnicity)} ${row2('Years Exp.', c.owner_years_experience)}
+        ${row2('Undergrad', c.owner_undergrad_school)} ${row2('Major', c.owner_undergrad_major)}
+        ${row2('Grad School', c.owner_grad_school)} ${row2('Degree', c.owner_grad_degree)}
+      </div>
+      ${c.owner_prev_companies ? `<div style="margin-top:10px">${row2('Previous', c.owner_prev_companies)}</div>` : ''}
+      ${c.owner_bio ? `<div style="margin-top:10px;font-size:13px;color:var(--text2);line-height:1.6">${c.owner_bio}</div>` : ''}
+    </div>`;
+  modal.classList.add('open');
+}
+
+function row2(label, val) {
+  return `<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--text3)">${label}: </span><span style="font-size:13px;color:var(--text)">${val ?? '—'}</span></div>`;
 }
 
 // ── AI Analyst ────────────────────────────────────────────────────────────────
