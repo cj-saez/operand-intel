@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>∈ σperand</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#161b27;--surface2:#1e2433;--surface3:#242938;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --green:#22c55e;--green-d:rgba(34,197,94,.12);
+  --blue:#3b82f6;--blue-d:rgba(59,130,246,.12);
+  --amber:#f59e0b;--amber-d:rgba(245,158,11,.12);
+  --red:#ef4444;--red-d:rgba(239,68,68,.12);
+  --purple:#a855f7;--purple-d:rgba(168,85,247,.12);
+  --cyan:#06b6d4;
+  --r:8px;--tr:.18s ease;
+}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}
+/* ── Layout ── */
+.app{display:flex;height:100vh;overflow:hidden}
+.nav{width:200px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.nav-logo{display:flex;align-items:center;gap:10px;padding:20px 16px;border-bottom:1px solid var(--border)}
+.nav-logo-mark{width:28px;height:28px;background:var(--blue);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.nav-logo-text{font-size:13px;font-weight:600;color:var(--text)}
+.nav-menu{flex:1;padding:8px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r);cursor:pointer;color:var(--text2);font-size:13px;font-weight:500;transition:all var(--tr);white-space:nowrap}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--blue-d);color:var(--blue)}
+.nav-item svg{flex-shrink:0;opacity:.7}
+.nav-item.active svg{opacity:1}
+.nav-section{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:16px 12px 6px}
+.nav-bot{padding:12px;border-top:1px solid var(--border)}
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600;color:var(--text);flex:1}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:6px 12px;width:220px}
+.search-box input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;font-family:inherit}
+.search-box input::placeholder{color:var(--text3)}
+.page{display:none;flex:1;overflow-y:auto;padding:28px 32px}
+.page.active{display:block}
+/* ── Cards ── */
+.kpi-grid{display:grid;gap:14px;margin-bottom:24px}
+.kpi-grid.cols-4{grid-template-columns:repeat(4,1fr)}
+.kpi-grid.cols-5{grid-template-columns:repeat(5,1fr)}
+.kpi-grid.cols-6{grid-template-columns:repeat(6,1fr)}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px}
+.kpi-label{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.kpi-value{font-size:22px;font-weight:700;color:var(--text);line-height:1}
+.kpi-value.green{color:var(--green)}
+.kpi-value.blue{color:var(--blue)}
+.kpi-value.amber{color:var(--amber)}
+.kpi-value.red{color:var(--red)}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:5px}
+/* ── Tables ── */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border)}
+.table-title{font-size:13px;font-weight:600;color:var(--text)}
+.table-sub{font-size:12px;color:var(--text3)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 16px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr.clickable{cursor:pointer;transition:background var(--tr)}
+tr.clickable:hover td{background:var(--surface2);color:var(--text)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+td strong{color:var(--text);font-weight:600}
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.badge-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge.green{background:var(--green-d);color:var(--green)}
+.badge.blue{background:var(--blue-d);color:var(--blue)}
+.badge.amber{background:var(--amber-d);color:var(--amber)}
+.badge.red{background:var(--red-d);color:var(--red)}
+.badge.purple{background:var(--purple-d);color:var(--purple)}
+.badge.gray{background:rgba(255,255,255,.06);color:var(--text3)}
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;transition:all var(--tr);border:none;font-family:inherit}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-sm{padding:5px 12px;font-size:12px}
+/* ── Page headers ── */
+.page-hdr{margin-bottom:24px}
+.page-hdr h1{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.page-hdr p{font-size:13px;color:var(--text3)}
+/* ── Breadcrumb ── */
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin-bottom:16px}
+.breadcrumb span{cursor:pointer;transition:color var(--tr)}
+.breadcrumb span:hover{color:var(--blue)}
+.breadcrumb .sep{opacity:.4}
+/* ── Section tabs ── */
+.tabs{display:flex;gap:2px;background:var(--surface2);border-radius:var(--r);padding:3px;width:fit-content;margin-bottom:20px}
+.tab{padding:6px 16px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text3);transition:all var(--tr)}
+.tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+/* ── Fund cards ── */
+.fund-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.fund-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;cursor:pointer;transition:all var(--tr)}
+.fund-card:hover{border-color:var(--border2);background:var(--surface2)}
+.fund-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.fund-card-name{font-size:15px;font-weight:700;color:var(--text)}
+.fund-card-vintage{font-size:12px;color:var(--text3)}
+.fund-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:14px}
+.fund-metric{display:flex;flex-direction:column;gap:2px}
+.fund-metric-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3)}
+.fund-metric-value{font-size:16px;font-weight:700;color:var(--text)}
+.fund-metric-value.pos{color:var(--green)}
+.fund-metric-value.neg{color:var(--red)}
+/* ── Progress bar ── */
+.progress-row{margin-top:10px}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:5px}
+.progress-bar{height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;background:var(--blue);transition:width .5s ease}
+/* ── Detail panels ── */
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
+.detail-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+.detail-card-title{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:14px}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-key{font-size:12px;color:var(--text3)}
+.detail-val{font-size:13px;font-weight:500;color:var(--text);text-align:right;max-width:60%}
+/* ── Score card ── */
+.score-header{display:flex;align-items:center;gap:16px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:20px}
+.score-badge-large{width:64px;height:64px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;flex-shrink:0}
+.score-badge-large.GREEN{background:var(--green-d);color:var(--green)}
+.score-badge-large.YELLOW{background:var(--amber-d);color:var(--amber)}
+.score-badge-large.RED{background:var(--red-d);color:var(--red)}
+.score-info h3{font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px}
+.score-info p{font-size:13px;color:var(--text2);line-height:1.55}
+/* ── Risk flags ── */
+.risk-section{margin-bottom:16px}
+.risk-section h4{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.risk-section.pos h4{color:var(--green)}
+.risk-section.mixed h4{color:var(--amber)}
+.risk-section.neg h4{color:var(--red)}
+.risk-item{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:13px;color:var(--text2)}
+.risk-icon{flex-shrink:0;margin-top:1px;font-size:12px}
+/* ── Score table ── */
+.score-table{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.score-table th{background:var(--surface2)}
+.applied-yes{color:var(--green);font-weight:600}
+.applied-no{color:var(--text3)}
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:900px;padding:0;animation:slideUp .25s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;transition:color var(--tr)}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:24px;max-height:80vh;overflow-y:auto}
+/* ── Upload zone ── */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:32px;text-align:center;cursor:pointer;transition:all var(--tr)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-d)}
+.upload-zone h3{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px}
+.upload-zone p{font-size:13px;color:var(--text3)}
+/* ── AI Chat ── */
+.ai-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.ai-messages{min-height:120px;max-height:320px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.ai-msg{padding:10px 14px;border-radius:var(--r);font-size:13px;line-height:1.6;max-width:88%}
+.ai-msg.user{background:var(--blue-d);color:var(--text);align-self:flex-end;border:1px solid rgba(59,130,246,.2)}
+.ai-msg.ai{background:var(--surface2);color:var(--text2);align-self:flex-start;border:1px solid var(--border)}
+.ai-input-row{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--border)}
+.ai-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:9px 14px;color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:none}
+.ai-input:focus{border-color:var(--blue)}
+/* ── Searcher profile header ── */
+.profile-header{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-bottom:20px;display:flex;align-items:flex-start;gap:20px}
+.profile-avatar{width:56px;height:56px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;flex-shrink:0;color:#fff}
+.profile-avatar.green{background:var(--green)}
+.profile-avatar.amber{background:var(--amber)}
+.profile-avatar.red{background:var(--red)}
+.profile-avatar.blue{background:var(--blue)}
+.profile-info{flex:1}
+.profile-name{font-size:20px;font-weight:700;color:var(--text);margin-bottom:3px}
+.profile-llc{font-size:13px;color:var(--text3);margin-bottom:8px}
+.profile-tags{display:flex;flex-wrap:wrap;gap:6px}
+/* ── Loading spinner ── */
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.15);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ── Misc ── */
+.empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
+.empty-state p{font-size:14px;margin-top:6px}
+.divider{height:1px;background:var(--border);margin:20px 0}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.filter-btn{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3);transition:all var(--tr);font-family:inherit}
+.filter-btn:hover,.filter-btn.active{background:var(--blue-d);border-color:var(--blue);color:var(--blue)}
+/* ── Tooltip ── */
+.tooltip{position:relative;cursor:help}
+.tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1e2433;color:var(--text);font-size:11px;padding:5px 10px;border-radius:6px;white-space:nowrap;border:1px solid var(--border);z-index:50;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <nav class="nav">
+    <div class="nav-logo">
+      <div class="nav-logo-mark">OG</div>
+      <div class="nav-logo-text">∈ σperand</div>
+    </div>
+    <div class="nav-menu">
+      <div class="nav-item active" onclick="showPage('portfolio')" id="nav-portfolio">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="7" height="9" rx="1"/><rect x="15" y="3" width="7" height="5" rx="1"/><rect x="15" y="12" width="7" height="9" rx="1"/><rect x="2" y="16" width="7" height="5" rx="1"/></svg>
+        Portfolio
+      </div>
+      <div class="nav-item" onclick="showPage('funds')" id="nav-funds">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Funds
+      </div>
+      <div class="nav-item" onclick="showPage('companies')" id="nav-companies">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Companies
+      </div>
+      <div class="nav-item" onclick="showPage('searches')" id="nav-searches">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        Searches
+      </div>
+      <div class="nav-section">Tools</div>
+      <div class="nav-item" onclick="showPage('ppm')" id="nav-ppm">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        PPM Ingestion
+      </div>
+      <div class="nav-item" onclick="showPage('ai')" id="nav-ai">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a10 10 0 110 20A10 10 0 0112 2z"/><path d="M12 16v-4m0-4h.01"/></svg>
+        AI Analyst
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Portfolio Overview</div>
+      <div class="search-box">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" placeholder="Search companies…" id="global-search" oninput="globalSearch(this.value)">
+      </div>
+    </div>
+
+    <!-- ── PORTFOLIO ── -->
+    <div class="page active" id="page-portfolio">
+      <div class="page-hdr">
+        <h1>Portfolio Overview</h1>
+        <p id="portfolio-sub">Loading…</p>
+      </div>
+      <div class="kpi-grid cols-4" id="portfolio-kpis"></div>
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-top:0" id="portfolio-returns"></div>
+      <div style="margin-top:24px" id="fund-cards-wrap"></div>
+    </div>
+
+    <!-- ── FUNDS ── -->
+    <div class="page" id="page-funds">
+      <div class="page-hdr"><h1>Funds</h1><p id="funds-sub"></p></div>
+      <div class="table-wrap">
+        <table id="funds-table">
+          <thead><tr>
+            <th>Fund</th><th>Vintage</th><th>Status</th>
+            <th class="num">Committed</th><th class="num">Called</th>
+            <th class="num">Total Value</th><th class="num">MOIC</th>
+            <th class="num">TVPI</th><th class="num">RVPI</th><th class="num">DVPI</th>
+            <th class="num">Companies</th>
+          </tr></thead>
+          <tbody id="funds-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── FUND DETAIL ── -->
+    <div class="page" id="page-fund-detail">
+      <div class="breadcrumb">
+        <span onclick="showPage('funds')">Funds</span>
+        <span class="sep">›</span>
+        <span id="fund-detail-breadcrumb"></span>
+      </div>
+      <div id="fund-detail-content"></div>
+    </div>
+
+    <!-- ── COMPANIES ── -->
+    <div class="page" id="page-companies">
+      <div class="page-hdr"><h1>Companies</h1><p id="companies-sub"></p></div>
+      <div class="filter-bar" id="companies-filter"></div>
+      <div class="table-wrap">
+        <table id="companies-table">
+          <thead><tr>
+            <th>Company</th><th>Fund</th><th>Sector</th><th>Status</th>
+            <th class="num">Invested</th><th class="num">Realized</th>
+            <th class="num">Unrealized</th><th class="num">MOIC</th><th class="num">IRR</th>
+          </tr></thead>
+          <tbody id="companies-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── COMPANY DETAIL ── -->
+    <div class="page" id="page-company-detail">
+      <div class="breadcrumb">
+        <span onclick="showPage('companies')">Companies</span>
+        <span class="sep">›</span>
+        <span id="co-detail-fund-crumb" style="cursor:pointer"></span>
+        <span class="sep">›</span>
+        <span id="co-detail-breadcrumb"></span>
+      </div>
+      <div id="co-detail-content"></div>
+    </div>
+
+    <!-- ── SEARCHES ── -->
+    <div class="page" id="page-searches">
+      <div class="page-hdr">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between">
+          <div><h1>Searches</h1><p id="searches-sub"></p></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="showPage('ppm')">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Ingest PPM
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="openNewSearcher()">+ Add Searcher</button>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-grid cols-5" id="searches-kpis"></div>
+      <div style="margin-top:20px">
+        <div class="filter-bar" id="searches-filter"></div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <div>
+              <div class="table-title">All Searches</div>
+              <div class="table-sub" id="searches-count"></div>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Searcher / Fund</th><th>Type</th><th>Sector</th>
+              <th class="num">Capital Target</th><th>Score</th>
+              <th>Status</th><th>Fund</th><th></th>
+            </tr></thead>
+            <tbody id="searches-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SEARCHER PROFILE ── -->
+    <div class="page" id="page-searcher">
+      <div class="breadcrumb">
+        <span onclick="showPage('searches')">Searches</span>
+        <span class="sep">›</span>
+        <span id="searcher-breadcrumb"></span>
+      </div>
+      <div id="searcher-profile-content"></div>
+    </div>
+
+    <!-- ── PPM INGESTION ── -->
+    <div class="page" id="page-ppm">
+      <div class="page-hdr">
+        <h1>PPM Ingestion</h1>
+        <p>Upload a Private Placement Memorandum — Claude will extract all structured data automatically.</p>
+      </div>
+      <div style="max-width:640px">
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('ppm-file').click()"
+             ondragover="e=>{e.preventDefault();this.classList.add('drag')}"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handlePPMDrop(event)">
+          <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--text3);margin:0 auto 12px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+          <h3>Drop PPM PDF here or click to browse</h3>
+          <p style="margin-top:6px">Claude will read the full document and extract demographic data, risk signals, and the outcome scorecard automatically.</p>
+          <input type="file" id="ppm-file" accept=".pdf" style="display:none" onchange="handlePPMFile(this.files[0])">
+        </div>
+        <div id="ppm-status" style="margin-top:16px;display:none"></div>
+        <div id="ppm-preview" style="margin-top:20px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- ── AI ANALYST ── -->
+    <div class="page" id="page-ai">
+      <div class="page-hdr">
+        <h1>AI Analyst</h1>
+        <p>Ask anything about the portfolio, searchers, fund performance, or benchmarks.</p>
+      </div>
+      <div style="max-width:760px">
+        <div class="ai-panel">
+          <div class="ai-messages" id="ai-messages">
+            <div class="ai-msg ai">Hello. I have full context on all funds, companies, and searchers. What would you like to analyze?</div>
+          </div>
+          <div class="ai-input-row">
+            <textarea class="ai-input" id="ai-input" rows="1" placeholder="Ask about performance, searchers, benchmarks…"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAI()}"></textarea>
+            <button class="btn btn-primary" onclick="sendAI()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Searcher Modal -->
+<div class="modal-overlay" id="new-searcher-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span style="font-size:15px;font-weight:600">Add New Searcher</span>
+      <button class="modal-close" onclick="closeModal('new-searcher-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" id="new-searcher-form"></div>
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
+        <button class="btn btn-ghost" onclick="closeModal('new-searcher-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveNewSearcher()">Save Searcher</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let allFunds = [], allCompanies = [], allSearchers = [];
+let aiHistory = [];
+let currentSearcherFilter = 'all';
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadFunds(), loadCompanies(), loadSearchers()]);
+  renderPortfolio();
+  renderFundsPage();
+  renderCompaniesPage();
+  renderSearchesPage();
+}
+
+async function loadFunds() {
+  const r = await fetch('/api/funds');
+  allFunds = await r.json();
+}
+async function loadCompanies() {
+  const r = await fetch('/api/companies');
+  allCompanies = await r.json();
+}
+async function loadSearchers() {
+  const r = await fetch('/api/searchers');
+  allSearchers = await r.json();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const PAGE_TITLES = {
+  portfolio: 'Portfolio Overview', funds: 'Funds', 'fund-detail': 'Fund Detail',
+  companies: 'Companies', 'company-detail': 'Company', searches: 'Searches',
+  searcher: 'Searcher Profile', ppm: 'PPM Ingestion', ai: 'AI Analyst'
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById('page-' + name);
+  if (page) page.classList.add('active');
+  const nav = document.getElementById('nav-' + name);
+  if (nav) nav.classList.add('active');
+  document.getElementById('topbar-title').textContent = PAGE_TITLES[name] || name;
+}
+
+// ── Format helpers ────────────────────────────────────────────────────────────
+function fmt$(n, decimals = 1) {
+  if (n == null) return '—';
+  const abs = Math.abs(n);
+  let s;
+  if (abs >= 1e9) s = (n / 1e9).toFixed(1) + 'B';
+  else if (abs >= 1e6) s = (n / 1e6).toFixed(1) + 'M';
+  else if (abs >= 1e3) s = (n / 1e3).toFixed(0) + 'K';
+  else s = n.toFixed(0);
+  return (n < 0 ? '−$' : '$') + s.replace('-', '');
+}
+function fmtX(n) { return n == null ? '—' : n.toFixed(2) + 'x'; }
+function fmtPct(n) { return n == null ? '—' : (n * 100).toFixed(1) + '%'; }
+function fmtNum(n) { return n == null ? '—' : n.toLocaleString(); }
+
+function scoreBadge(color, score) {
+  const cls = color === 'GREEN' ? 'green' : color === 'RED' ? 'red' : 'amber';
+  return `<span class="badge ${cls}">${score != null ? score > 0 ? '+' + score : score : '—'} ${color || '—'}</span>`;
+}
+
+function statusBadge(status) {
+  const map = {
+    'HARVESTING': 'amber', 'DEPLOYING': 'blue', 'ACTIVE': 'green',
+    'SEARCHING': 'blue', 'ACQUIRED': 'green', 'FAILED': 'red',
+    'EXITED': 'purple', 'WRITE-OFF': 'red'
+  };
+  const cls = map[status] || 'gray';
+  return `<span class="badge ${cls}"><span class="badge-dot" style="background:currentColor"></span>${status || '—'}</span>`;
+}
+
+// ── Portfolio ─────────────────────────────────────────────────────────────────
+function renderPortfolio() {
+  const totalCommitted = allFunds.reduce((s, f) => s + (f.committed || 0), 0);
+  const totalCalled = allFunds.reduce((s, f) => s + (f.called || 0), 0);
+  const totalValue = allFunds.reduce((s, f) => s + (f.total_value || 0), 0);
+  const grossMoic = totalCalled > 0 ? totalValue / totalCalled : 0;
+
+  document.getElementById('portfolio-sub').textContent =
+    `Operand Group — ${allFunds.length} funds, ${allCompanies.length} companies`;
+
+  document.getElementById('portfolio-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total Called</div><div class="kpi-value">${fmt$(totalCalled)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Value</div><div class="kpi-value green">${fmt$(totalValue)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gross MOIC</div><div class="kpi-value green">${fmtX(grossMoic)}</div><div class="kpi-sub">Strong</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Companies</div><div class="kpi-value">${allCompanies.length}</div></div>
+  `;
+
+  // Fund cards
+  document.getElementById('fund-cards-wrap').innerHTML = `
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Funds</div>
+    <div class="fund-cards">${allFunds.map(f => fundCard(f)).join('')}</div>
+  `;
+}
+
+function fundCard(f) {
+  const pct = f.committed > 0 ? Math.round((f.called / f.committed) * 100) : 0;
+  const status = f.status === 'HARVESTING' ? 'amber' : 'blue';
+  const cos = allCompanies.filter(c => c.fund_id === f.id).length;
+  return `
+    <div class="fund-card" onclick="showFundDetail('${f.id}')">
+      <div class="fund-card-header">
+        <div>
+          <div class="fund-card-name">${f.name}</div>
+          <div class="fund-card-vintage">${f.vintage} vintage · ${cos} companies</div>
+        </div>
+        <span class="badge ${status}"><span class="badge-dot" style="background:currentColor"></span>${f.status}</span>
+      </div>
+      <div class="fund-metrics">
+        <div class="fund-metric"><div class="fund-metric-label">MOIC</div><div class="fund-metric-value pos">${fmtX(f.moic)}</div></div>
+        <div class="fund-metric"><div class="fund-metric-label">Total Value</div><div class="fund-metric-value pos">${fmt$(f.total_value)}</div></div>
+        <div class="fund-metric"><div class="fund-metric-label">TVPI</div><div class="fund-metric-value">${fmtX(f.tvpi)}</div></div>
+        <div class="fund-metric"><div class="fund-metric-label">DVPI</div><div class="fund-metric-value">${fmtX(f.dvpi)}</div></div>
+      </div>
+      <div class="progress-row">
+        <div class="progress-label"><span>Called</span><span>${fmt$(f.called)} / ${fmt$(f.committed)}</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>
+    </div>`;
+}
+
+// ── Funds Page ────────────────────────────────────────────────────────────────
+function renderFundsPage() {
+  const total = allFunds.reduce((s, f) => s + (f.committed || 0), 0);
+  document.getElementById('funds-sub').textContent = `${allFunds.length} funds · ${fmt$(total)} committed`;
+  document.getElementById('funds-tbody').innerHTML = allFunds.map(f => `
+    <tr class="clickable" onclick="showFundDetail('${f.id}')">
+      <td><strong>${f.name}</strong></td>
+      <td>${f.vintage}</td>
+      <td>${statusBadge(f.status)}</td>
+      <td class="num">${fmt$(f.committed)}</td>
+      <td class="num">${fmt$(f.called)}</td>
+      <td class="num" style="color:var(--green)">${fmt$(f.total_value)}</td>
+      <td class="num" style="color:var(--green)">${fmtX(f.moic)}</td>
+      <td class="num">${fmtX(f.tvpi)}</td>
+      <td class="num" style="color:var(--amber)">${fmtX(f.rvpi)}</td>
+      <td class="num" style="color:var(--cyan)">${fmtX(f.dvpi)}</td>
+      <td class="num">${allCompanies.filter(c => c.fund_id === f.id).length}</td>
+    </tr>`).join('');
+}
+
+async function showFundDetail(fundId) {
+  const r = await fetch('/api/funds/' + fundId);
+  const fund = await r.json();
+  document.getElementById('fund-detail-breadcrumb').textContent = fund.name;
+  document.getElementById('topbar-title').textContent = fund.name;
+
+  const cos = fund.companies || [];
+  document.getElementById('fund-detail-content').innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <h1 style="font-size:22px;font-weight:700;color:var(--text)">${fund.name}</h1>
+        <div style="margin-top:6px">${statusBadge(fund.status)}</div>
+      </div>
+    </div>
+    <div class="kpi-grid cols-6" style="margin-bottom:24px">
+      <div class="kpi-card"><div class="kpi-label">Committed</div><div class="kpi-value">${fmt$(fund.committed)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Called</div><div class="kpi-value">${fmt$(fund.called)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Value</div><div class="kpi-value green">${fmt$(fund.total_value)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">MOIC</div><div class="kpi-value green">${fmtX(fund.moic)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">TVPI</div><div class="kpi-value">${fmtX(fund.tvpi)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">DVPI</div><div class="kpi-value">${fmtX(fund.dvpi)}</div></div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-header"><div class="table-title">Portfolio Companies</div><div class="table-sub">${cos.length} companies</div></div>
+      <table><thead><tr>
+        <th>Company</th><th>Sector</th><th>Status</th>
+        <th class="num">Invested</th><th class="num">Realized</th><th class="num">Unrealized</th>
+        <th class="num">Total Return</th><th class="num">MOIC</th><th class="num">IRR</th>
+      </tr></thead><tbody>
+      ${cos.map(c => `<tr class="clickable" onclick="showCompanyDetail(${c.id})">
+        <td><strong>${c.name}</strong>${c.short_name ? `<br><span style="font-size:11px;color:var(--text3)">${c.short_name}</span>` : ''}</td>
+        <td><span class="tag">${c.sector || '—'}</span></td>
+        <td>${statusBadge(c.status)}</td>
+        <td class="num">${fmt$(c.invested)}</td>
+        <td class="num">${fmt$(c.realized)}</td>
+        <td class="num" style="color:var(--green)">${fmt$(c.unrealized)}</td>
+        <td class="num" style="color:var(--green)">${fmt$(c.total_return)}</td>
+        <td class="num" style="color:var(--green)">${fmtX(c.moic)}</td>
+        <td class="num">${c.irr != null ? (c.irr * 100).toFixed(1) + '%' : '—'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+
+  showPage('fund-detail');
+}
+
+// ── Companies Page ────────────────────────────────────────────────────────────
+function renderCompaniesPage() {
+  document.getElementById('companies-sub').textContent = `${allCompanies.length} companies across ${allFunds.length} funds`;
+  // Fund filter
+  document.getElementById('companies-filter').innerHTML =
+    `<button class="filter-btn active" onclick="filterCompanies('all',this)">All Funds</button>` +
+    allFunds.map(f => `<button class="filter-btn" onclick="filterCompanies('${f.id}',this)">${f.name}</button>`).join('');
+  renderCompaniesTable(allCompanies);
+}
+
+function filterCompanies(fundId, btn) {
+  document.querySelectorAll('#companies-filter .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCompaniesTable(fundId === 'all' ? allCompanies : allCompanies.filter(c => c.fund_id === fundId));
+}
+
+function renderCompaniesTable(cos) {
+  document.getElementById('companies-tbody').innerHTML = cos.map(c => `
+    <tr class="clickable" onclick="showCompanyDetail(${c.id})">
+      <td><strong>${c.name}</strong></td>
+      <td><span style="font-size:12px;color:var(--text3)">${c.fund_name || '—'}</span></td>
+      <td><span class="tag">${c.sector || '—'}</span></td>
+      <td>${statusBadge(c.status)}</td>
+      <td class="num">${fmt$(c.invested)}</td>
+      <td class="num">${fmt$(c.realized)}</td>
+      <td class="num" style="color:var(--green)">${fmt$(c.unrealized)}</td>
+      <td class="num" style="color:var(--green)">${fmtX(c.moic)}</td>
+      <td class="num">${c.irr != null ? (c.irr * 100).toFixed(1) + '%' : '—'}</td>
+    </tr>`).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No companies</td></tr>`;
+}
+
+async function showCompanyDetail(id) {
+  const r = await fetch('/api/companies/' + id);
+  const co = await r.json();
+  const coBreadcrumb = document.getElementById('co-detail-breadcrumb');
+  const fundCrumb = document.getElementById('co-detail-fund-crumb');
+  coBreadcrumb.textContent = co.name;
+  fundCrumb.textContent = co.fund_name || '—';
+  fundCrumb.onclick = () => showFundDetail(co.fund_id);
+  document.getElementById('topbar-title').textContent = co.name;
+
+  const cfs = co.cash_flows || [];
+  const netCF = cfs.reduce((s, cf) => s + (cf.amount || 0), 0);
+
+  document.getElementById('co-detail-content').innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h1 style="font-size:22px;font-weight:700;color:var(--text)">${co.name}</h1>
+        <div style="font-size:13px;color:var(--text3);margin-top:3px">${co.sector || ''} · ${co.fund_name || '—'}</div>
+        <div style="margin-top:8px;display:flex;gap:8px">${statusBadge(co.status)}</div>
+      </div>
+    </div>
+    <div class="kpi-grid cols-6" style="margin-bottom:24px">
+      <div class="kpi-card"><div class="kpi-label">Invested</div><div class="kpi-value">${fmt$(co.invested)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Realized</div><div class="kpi-value">${fmt$(co.realized)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Unrealized</div><div class="kpi-value green">${fmt$(co.unrealized)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">Total Return</div><div class="kpi-value green">${fmt$(co.total_return)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">MOIC</div><div class="kpi-value green">${fmtX(co.moic)}</div></div>
+      <div class="kpi-card"><div class="kpi-label">IRR</div><div class="kpi-value green">${co.irr != null ? (co.irr*100).toFixed(1)+'%' : '—'}</div></div>
+    </div>
+    ${co.ev_ebitda_original || co.ev_ebitda_current ? `
+    <div class="table-wrap" style="margin-bottom:24px">
+      <div class="table-header"><div class="table-title">Valuation</div></div>
+      <table><thead><tr><th></th><th>At Original Underwriting</th><th>Current Mark</th><th>Notes</th></tr></thead>
+      <tbody>
+        ${co.ebitda_current ? `<tr><td class="detail-key">EBITDA</td><td>—</td><td style="color:var(--green);font-weight:600">$${(co.ebitda_current/1e6).toFixed(1)}M</td><td></td></tr>` : ''}
+        ${co.ev_ebitda_original || co.ev_ebitda_current ? `<tr><td class="detail-key">EV / EBITDA</td><td>${co.ev_ebitda_original ? co.ev_ebitda_original.toFixed(1)+'x' : '—'}</td><td style="color:var(--green);font-weight:600">${co.ev_ebitda_current ? co.ev_ebitda_current.toFixed(1)+'x' : '—'}</td><td style="font-size:12px;color:var(--text3)">${co.current_mark_notes || ''}</td></tr>` : ''}
+        ${co.tev_current ? `<tr><td class="detail-key">TEV</td><td>${co.tev_original ? fmt$(co.tev_original) : '—'}</td><td style="color:var(--green);font-weight:600">${fmt$(co.tev_current)}</td><td></td></tr>` : ''}
+        ${co.equity_value ? `<tr><td class="detail-key">Equity Value</td><td>—</td><td style="color:var(--green);font-weight:600">${fmt$(co.equity_value)}</td><td></td></tr>` : ''}
+      </tbody></table>
+    </div>` : ''}
+    <div class="table-wrap">
+      <div class="table-header"><div class="table-title">Cash Flows</div><div class="table-sub">${cfs.length} entries · Net: <span style="color:${netCF<0?'var(--red)':'var(--green)'}">${fmt$(netCF)}</span></div></div>
+      <table><thead><tr><th>Date</th><th class="num">Amount</th><th>Description</th></tr></thead>
+      <tbody>${cfs.map(cf => `<tr>
+        <td>${cf.date}</td>
+        <td class="num" style="color:${cf.amount<0?'var(--red)':'var(--green)';font-weight:500}">${cf.amount < 0 ? '('+fmt$(Math.abs(cf.amount))+')' : fmt$(cf.amount)}</td>
+        <td style="color:var(--text3)">${cf.description || '—'}</td>
+      </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:24px">No cash flows recorded</td></tr>'}
+      </tbody></table>
+    </div>`;
+
+  showPage('company-detail');
+}
+
+// ── Searches Page ─────────────────────────────────────────────────────────────
+function renderSearchesPage() {
+  const total = allSearchers.length;
+  const acquired = allSearchers.filter(s => s.status === 'ACQUIRED').length;
+  const searching = allSearchers.filter(s => s.status === 'SEARCHING').length;
+  const sectors = new Set(allSearchers.map(s => s.sector).filter(Boolean)).size;
+  const opParticipation = allSearchers.filter(s => s.operand_participation).length;
+
+  document.getElementById('searches-sub').textContent = `${total} searchers across ${sectors} sectors`;
+  document.getElementById('searches-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total Searches</div><div class="kpi-value">${total}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Sectors</div><div class="kpi-value">${sectors}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Companies Acquired</div><div class="kpi-value green">${acquired}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Currently Searching</div><div class="kpi-value blue">${searching}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Operand Backed</div><div class="kpi-value">${opParticipation}</div></div>
+  `;
+
+  // Filter buttons
+  document.getElementById('searches-filter').innerHTML = `
+    <button class="filter-btn active" onclick="filterSearchers('all',this)">All</button>
+    <button class="filter-btn" onclick="filterSearchers('SEARCHING',this)">Searching</button>
+    <button class="filter-btn" onclick="filterSearchers('ACQUIRED',this)">Acquired</button>
+    <button class="filter-btn" onclick="filterSearchers('GREEN',this)">🟢 Green</button>
+    <button class="filter-btn" onclick="filterSearchers('YELLOW',this)">🟡 Yellow</button>
+    <button class="filter-btn" onclick="filterSearchers('RED',this)">🔴 Red</button>
+  `;
+
+  renderSearchersTable(allSearchers);
+}
+
+function filterSearchers(filter, btn) {
+  document.querySelectorAll('#searches-filter .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSearcherFilter = filter;
+  let filtered = allSearchers;
+  if (filter === 'SEARCHING' || filter === 'ACQUIRED') filtered = allSearchers.filter(s => s.status === filter);
+  else if (filter === 'GREEN' || filter === 'YELLOW' || filter === 'RED') filtered = allSearchers.filter(s => s.score_color === filter);
+  renderSearchersTable(filtered);
+}
+
+function renderSearchersTable(searchers) {
+  document.getElementById('searches-count').textContent = `${searchers.length} results`;
+  document.getElementById('searches-tbody').innerHTML = searchers.map(s => `
+    <tr class="clickable" onclick="showSearcherProfile(${s.id})">
+      <td>
+        <div style="font-weight:600;color:var(--text)">${s.searcher_name || s.searcher_identifier || '—'}</div>
+        <div style="font-size:11px;color:var(--text3)">${s.llc_name || ''}</div>
+      </td>
+      <td><span class="tag">${s.search_type || '—'}</span></td>
+      <td><span class="tag">${s.sector || '—'}</span></td>
+      <td class="num">${s.search_capital_target ? fmt$(s.search_capital_target) : '—'}</td>
+      <td>${scoreBadge(s.score_color, s.headline_score)}</td>
+      <td>${statusBadge(s.status)}</td>
+      <td><span style="font-size:12px;color:var(--text3)">${s.fund_name || s.fund_id || '—'}</span></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showSearcherProfile(${s.id})">View →</button></td>
+    </tr>`).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No searchers found</td></tr>`;
+}
+
+// ── Searcher Profile ──────────────────────────────────────────────────────────
+async function showSearcherProfile(id) {
+  const r = await fetch('/api/searchers/' + id);
+  const s = await r.json();
+  document.getElementById('searcher-breadcrumb').textContent = s.searcher_name || s.searcher_identifier;
+  document.getElementById('topbar-title').textContent = s.searcher_name || s.searcher_identifier;
+
+  let rPos = [], rMixed = [], rNeg = [], signals = [];
+  try { rPos = JSON.parse(s.risk_positive || '[]'); } catch {}
+  try { rMixed = JSON.parse(s.risk_mixed || '[]'); } catch {}
+  try { rNeg = JSON.parse(s.risk_negative || '[]'); } catch {}
+  try { signals = JSON.parse(s.score_signals || '[]'); } catch {}
+
+  const avatarColor = s.score_color === 'GREEN' ? 'green' : s.score_color === 'RED' ? 'red' : 'amber';
+  const initials = (s.searcher_name || s.searcher_identifier || '?').split(' ').map(w => w[0]).slice(0, 2).join('');
+
+  document.getElementById('searcher-profile-content').innerHTML = `
+    <!-- Header -->
+    <div class="profile-header">
+      <div class="profile-avatar ${avatarColor}">${initials}</div>
+      <div class="profile-info">
+        <div class="profile-name">${s.searcher_name || '—'}</div>
+        <div class="profile-llc">${s.llc_name || ''}</div>
+        <div class="profile-tags">
+          ${s.search_type ? `<span class="tag">${s.search_type}</span>` : ''}
+          ${s.sector ? `<span class="tag">${s.sector}</span>` : ''}
+          ${s.gender && s.gender !== 'Not Stated' ? `<span class="tag">${s.gender}</span>` : ''}
+          ${s.ethnicity ? `<span class="tag">${s.ethnicity}</span>` : ''}
+          ${statusBadge(s.status)}
+          ${s.company_acquired ? `<span class="badge green">Acquired: ${s.company_acquired}</span>` : ''}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Operand Backed</div>
+        <div style="font-size:16px;font-weight:700;color:${s.operand_participation ? 'var(--green)' : 'var(--text3)'}">
+          ${s.operand_participation ? '✓ Yes' : '✗ No'}
+        </div>
+      </div>
+    </div>
+
+    <!-- Score -->
+    <div class="score-header">
+      <div class="score-badge-large ${s.score_color || 'YELLOW'}">
+        ${s.headline_score != null ? (s.headline_score > 0 ? '+' : '') + s.headline_score : '—'}
+      </div>
+      <div class="score-info">
+        <h3>Headline Score: ${s.score_color || '—'}</h3>
+        <p>${s.overall_take || 'No assessment recorded.'}</p>
+      </div>
+    </div>
+
+    <!-- Two-column layout -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <!-- Demographics -->
+      <div class="detail-card">
+        <div class="detail-card-title">Demographic & Fund Details</div>
+        ${[
+          ['Searcher Identifier', s.searcher_identifier],
+          ['Search Type', s.search_type],
+          ['Ethnicity', s.ethnicity],
+          ['Gender', s.gender],
+          ['Estimated Age', s.estimated_age],
+          ['Marital Status', s.marital_status],
+          ['Education', s.education],
+          ['Professional Background', s.professional_background],
+          ['Capital Target', s.search_capital_target ? fmt$(s.search_capital_target) : null],
+          ['Unit Price', s.capital_value_per_unit ? '$' + fmtNum(s.capital_value_per_unit) : null],
+          ['Total Units', s.total_units],
+          ['Post-MBA Years', s.post_mba_years],
+          ['ETA Class', s.took_eta_class ? 'Yes' : 'No'],
+          ['ETA Internship', s.completed_eta_internship ? 'Yes' : 'No'],
+          ['Location', s.location_specific || s.location_general],
+          ['Target Industries', s.target_industries],
+        ].filter(([, v]) => v != null && v !== '').map(([k, v]) =>
+          `<div class="detail-row"><div class="detail-key">${k}</div><div class="detail-val">${v}</div></div>`
+        ).join('')}
+      </div>
+
+      <!-- Risk flags -->
+      <div>
+        <div class="detail-card" style="margin-bottom:14px">
+          <div class="detail-card-title">Risk Flags & Benchmark</div>
+          ${rPos.length ? `<div class="risk-section pos"><h4>✅ Strong Matches</h4>${rPos.map(r => `<div class="risk-item"><span class="risk-icon" style="color:var(--green)">●</span>${r}</div>`).join('')}</div>` : ''}
+          ${rMixed.length ? `<div class="risk-section mixed"><h4>⚠️ Mixed Signals</h4>${rMixed.map(r => `<div class="risk-item"><span class="risk-icon" style="color:var(--amber)">●</span>${r}</div>`).join('')}</div>` : ''}
+          ${rNeg.length ? `<div class="risk-section neg"><h4>❌ Risk Flags</h4>${rNeg.map(r => `<div class="risk-item"><span class="risk-icon" style="color:var(--red)">●</span>${r}</div>`).join('')}</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Score Table -->
+    ${signals.length ? `
+    <div class="score-table" style="margin-bottom:20px">
+      <div class="table-header"><div class="table-title">Score Signals</div><div class="table-sub">Total: ${s.headline_score != null ? (s.headline_score > 0 ? '+' : '') + s.headline_score : '—'} (${s.score_color})</div></div>
+      <table><thead><tr><th>Signal</th><th>Weight</th><th>Applied</th></tr></thead>
+      <tbody>${signals.map(sig => `<tr>
+        <td>${sig.signal}</td>
+        <td class="num" style="font-weight:600;color:${sig.weight.startsWith('+') ? 'var(--green)' : 'var(--red)'}">${sig.weight}</td>
+        <td class="${sig.applied ? 'applied-yes' : 'applied-no'}">${sig.applied ? '✓ Yes' : '✗ No'}</td>
+      </tr>`).join('')}</tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- Notes & Fund -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <div class="detail-card">
+        <div class="detail-card-title">Fund Details</div>
+        ${[
+          ['Fund', s.fund_name || s.fund_id],
+          ['Capital Raised', s.capital_raised ? fmt$(s.capital_raised) : null],
+          ['Capital Called', s.capital_called ? fmt$(s.capital_called) : null],
+          ['Company Acquired', s.company_acquired],
+        ].filter(([, v]) => v).map(([k, v]) =>
+          `<div class="detail-row"><div class="detail-key">${k}</div><div class="detail-val">${v}</div></div>`
+        ).join('')}
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">Notes</div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6">${s.notes || 'No notes.'}</p>
+      </div>
+    </div>
+
+    <!-- AI Analysis -->
+    <div class="ai-panel" style="margin-bottom:20px">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;font-weight:600;color:var(--text)">AI Analysis</span>
+        <button class="btn btn-primary btn-sm" onclick="analyzeSearcher(${s.id},'${(s.searcher_name||'').replace(/'/g,'')}')" id="analyze-btn-${s.id}">Ask AI about this searcher</button>
+      </div>
+      <div class="ai-messages" id="searcher-ai-messages-${s.id}" style="min-height:80px;max-height:200px">
+        <div class="ai-msg ai" style="font-size:12px;color:var(--text3)">Click "Ask AI" to get an analysis of this searcher profile.</div>
+      </div>
+    </div>
+  `;
+
+  showPage('searcher');
+}
+
+async function analyzeSearcher(id, name) {
+  const btn = document.getElementById('analyze-btn-' + id);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  const msgs = document.getElementById('searcher-ai-messages-' + id);
+  const bubble = document.createElement('div');
+  bubble.className = 'ai-msg ai';
+  msgs.appendChild(bubble);
+
+  let full = '';
+  await streamAI(
+    `Give me a thorough analysis of this searcher's profile: ${name}. Cover their strengths, risk factors, how they compare to typical search fund benchmarks, and what I should know going into diligence or a relationship call.`,
+    [],
+    chunk => { full += chunk; bubble.innerHTML = renderMd(full); msgs.scrollTop = msgs.scrollHeight; },
+    () => { btn.disabled = false; btn.textContent = 'Ask again'; }
+  );
+}
+
+// ── PPM Ingestion ─────────────────────────────────────────────────────────────
+function handlePPMDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') handlePPMFile(file);
+}
+
+async function handlePPMFile(file) {
+  if (!file) return;
+  const status = document.getElementById('ppm-status');
+  const preview = document.getElementById('ppm-preview');
+  status.style.display = 'block';
+  preview.style.display = 'none';
+  status.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--text2)"><span class="spinner"></span> Reading <strong>${file.name}</strong> — Claude is extracting structured data…</div>`;
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const r = await fetch('/api/ppm/extract', { method: 'POST', body: fd });
+    const result = await r.json();
+    if (!result.ok) { status.innerHTML = `<div style="color:var(--red)">Error: ${result.error}</div>`; return; }
+    status.innerHTML = `<div style="color:var(--green)">✓ Extraction complete — review and save below.</div>`;
+    renderPPMPreview(result.data);
+  } catch (e) {
+    status.innerHTML = `<div style="color:var(--red)">Request failed: ${e.message}</div>`;
+  }
+}
+
+function renderPPMPreview(data) {
+  const preview = document.getElementById('ppm-preview');
+  preview.style.display = 'block';
+
+  const fields = [
+    ['Searcher Identifier', 'searcher_identifier'], ['Name(s)', 'searcher_name'],
+    ['LLC Name', 'llc_name'], ['Search Type', 'search_type'],
+    ['Ethnicity', 'ethnicity'], ['Gender', 'gender'],
+    ['Estimated Age', 'estimated_age'], ['Marital Status', 'marital_status'],
+    ['Education', 'education'], ['Background', 'professional_background'],
+    ['Capital Target', 'search_capital_target'], ['Unit Price', 'capital_value_per_unit'],
+    ['Total Units', 'total_units'], ['Post-MBA Years', 'post_mba_years'],
+    ['Location', 'location_specific'], ['Industries', 'target_industries'],
+    ['Sector', 'sector'],
+  ];
+
+  preview.innerHTML = `
+    <div class="table-wrap">
+      <div class="table-header"><div class="table-title">Extracted Data — Review Before Saving</div></div>
+      <div style="padding:20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-bottom:20px">
+          ${fields.map(([label, key]) => `
+            <div>
+              <label style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:4px">${label}</label>
+              <input class="ppm-field" data-key="${key}" value="${data[key] != null ? String(data[key]).replace(/"/g,'&quot;') : ''}"
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            </div>`).join('')}
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:4px">Overall Take</label>
+          <textarea data-key="overall_take" class="ppm-field" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical;min-height:80px">${data.overall_take || ''}</textarea>
+        </div>
+        ${data.score_color ? `
+        <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px">
+          <div class="score-badge-large ${data.score_color}" style="width:48px;height:48px;font-size:18px">
+            ${data.headline_score != null ? (data.headline_score > 0 ? '+' : '') + data.headline_score : '—'}
+          </div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--text)">Score: ${data.score_color}</div>
+            <div style="font-size:12px;color:var(--text3)">Review signals in the full profile after saving</div>
+          </div>
+        </div>` : ''}
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button class="btn btn-ghost" onclick="document.getElementById('ppm-preview').style.display='none'">Discard</button>
+          <button class="btn btn-primary" onclick="savePPMSearcher()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save to Searches
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  // Store extracted data on window for saving
+  window._ppmData = data;
+}
+
+async function savePPMSearcher() {
+  const data = { ...window._ppmData };
+  // Collect edited field values
+  document.querySelectorAll('.ppm-field').forEach(el => {
+    const key = el.dataset.key;
+    let val = el.value.trim();
+    if (key === 'search_capital_target' || key === 'capital_value_per_unit' || key === 'total_units' || key === 'headline_score') {
+      val = parseFloat(val) || null;
+    }
+    data[key] = val || null;
+  });
+  data.status = 'SEARCHING';
+  data.operand_participation = 1;
+
+  const r = await fetch('/api/searchers', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  if (r.ok) {
+    const result = await r.json();
+    await loadSearchers();
+    renderSearchesPage();
+    document.getElementById('ppm-status').innerHTML = `<div style="color:var(--green)">✓ Saved to Searches. <span style="cursor:pointer;text-decoration:underline" onclick="showSearcherProfile(${result.id})">View profile →</span></div>`;
+    document.getElementById('ppm-preview').style.display = 'none';
+    document.getElementById('upload-zone').style.display = 'block';
+  }
+}
+
+// ── New Searcher Form ─────────────────────────────────────────────────────────
+function openNewSearcher() {
+  const fields = [
+    ['Searcher Name', 'searcher_name', 'text'],
+    ['LLC Name', 'llc_name', 'text'],
+    ['Search Type', 'search_type', 'text'],
+    ['Ethnicity', 'ethnicity', 'text'],
+    ['Gender', 'gender', 'text'],
+    ['Education', 'education', 'text'],
+    ['Capital Target', 'search_capital_target', 'number'],
+    ['Sector', 'sector', 'text'],
+  ];
+  document.getElementById('new-searcher-form').innerHTML = fields.map(([label, key, type]) => `
+    <div>
+      <label style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">${label}</label>
+      <input type="${type}" id="ns-${key}" placeholder="${label}"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+    </div>`).join('');
+  openModal('new-searcher-modal');
+}
+
+async function saveNewSearcher() {
+  const data = {
+    searcher_name: document.getElementById('ns-searcher_name').value,
+    llc_name: document.getElementById('ns-llc_name').value,
+    search_type: document.getElementById('ns-search_type').value,
+    ethnicity: document.getElementById('ns-ethnicity').value,
+    gender: document.getElementById('ns-gender').value,
+    education: document.getElementById('ns-education').value,
+    search_capital_target: parseFloat(document.getElementById('ns-search_capital_target').value) || null,
+    sector: document.getElementById('ns-sector').value,
+    status: 'SEARCHING',
+    operand_participation: 1,
+  };
+  const r = await fetch('/api/searchers', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+  if (r.ok) {
+    await loadSearchers();
+    renderSearchesPage();
+    closeModal('new-searcher-modal');
+  }
+}
+
+// ── AI Analyst ────────────────────────────────────────────────────────────────
+async function sendAI() {
+  const input = document.getElementById('ai-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  const msgs = document.getElementById('ai-messages');
+  msgs.innerHTML += `<div class="ai-msg user">${msg}</div>`;
+  const bubble = document.createElement('div');
+  bubble.className = 'ai-msg ai';
+  bubble.innerHTML = '<span class="spinner"></span>';
+  msgs.appendChild(bubble);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  let full = '';
+  aiHistory.push({ role: 'user', content: msg });
+  await streamAI(msg, aiHistory.slice(-10),
+    chunk => { full += chunk; bubble.innerHTML = renderMd(full); msgs.scrollTop = msgs.scrollHeight; },
+    () => { aiHistory.push({ role: 'assistant', content: full }); }
+  );
+}
+
+async function streamAI(message, history, onChunk, onDone) {
+  try {
+    const r = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history })
+    });
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') { onDone && onDone(); return; }
+        try { const d = JSON.parse(payload); if (d.text) onChunk(d.text); } catch {}
+      }
+    }
+    onDone && onDone();
+  } catch (e) { onChunk('Error: ' + e.message); }
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+function globalSearch(q) {
+  if (!q.trim()) return;
+  // Filter companies and searchers by name
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── Markdown renderer ─────────────────────────────────────────────────────────
+function renderMd(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/^### (.+)$/gm,'<div style="font-size:12px;font-weight:700;color:var(--text);margin:10px 0 4px;letter-spacing:.06em;text-transform:uppercase">$1</div>')
+    .replace(/^## (.+)$/gm,'<div style="font-size:14px;font-weight:700;color:var(--text);margin:12px 0 6px">$1</div>')
+    .replace(/^- (.+)$/gm,'<div style="padding:2px 0 2px 14px;position:relative">· $1</div>')
+    .replace(/\n/g,'<br>');
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
