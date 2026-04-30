@@ -1772,7 +1772,7 @@ function initUniverse() {
       return;
     }
     document.getElementById('universe-count-label').textContent =
-      '|D| = ' + stats.total.toLocaleString() + ' elements';
+      stats.total.toLocaleString() + ' elements in the domain';
     loadUniverseTable(1);
   }).catch(function(e) {
     document.getElementById('universe-count-label').textContent = 'Error: ' + e.message;
