@@ -890,82 +890,93 @@ def get_universe_company(company_id):
 
 @app.route('/api/universe/query', methods=['POST'])
 def universe_query():
-    """Natural language → SQL → results → AI summary, streamed."""
+    """Natural language → dual SQL (answer + people list) → AI summary, streamed."""
     data = request.get_json(silent=True) or {}
     question = data.get('question', '').strip()
     if not question:
         return jsonify({'error': 'No question'}), 400
 
-    # Step 1: Convert question to SQL (non-streaming)
-    sql_prompt = f"""You are a SQL expert. Convert the user's natural language question into a SQLite query against the deal_companies table.
+    # Step 1: Generate both an answer query and a people-list query
+    sql_prompt = f"""You are a SQL expert. Convert the user's question into SQLite queries against deal_companies.
 
 {UNIVERSE_SCHEMA}
 
+Return a JSON object with exactly two keys:
+- "answer_sql": the query that directly answers the question (may be aggregation/count/percentage)
+- "list_sql": always returns individual matching rows: SELECT id, name, owner_name, owner_grad_school, owner_undergrad_school, sector, state, status FROM deal_companies WHERE <same filter conditions> LIMIT 150
+
 Rules:
-- Return ONLY the SQL query, nothing else, no markdown fences
-- Use LIKE for partial text matches (case-insensitive via LOWER())
-- For school questions use LOWER(owner_grad_school) LIKE '%booth%' style matching
-- For percentage questions use COUNT(*) * 100.0 / (SELECT COUNT(*) FROM deal_companies) AS pct
-- Always LIMIT to 200 rows max unless it's an aggregation query
-- For "what percent" questions, return a percentage value
-- Never use DROP, DELETE, UPDATE, INSERT — read-only queries only
+- Return ONLY valid JSON, no markdown fences
+- Use LIKE for partial matches with LOWER()
+- For percentage questions, answer_sql uses COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct
+- Never use DROP, DELETE, UPDATE, INSERT, ALTER
+
+Example for "What % went to Booth?":
+{{"answer_sql":"SELECT COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct FROM deal_companies WHERE LOWER(owner_grad_school) LIKE '%booth%'","list_sql":"SELECT id,name,owner_name,owner_grad_school,owner_undergrad_school,sector,state,status FROM deal_companies WHERE LOWER(owner_grad_school) LIKE '%booth%' LIMIT 150"}}
 
 User question: {question}
 
-SQL:"""
+JSON:"""
 
     try:
         sql_resp = client.messages.create(
             model='claude-sonnet-4-6',
-            max_tokens=400,
+            max_tokens=600,
             messages=[{'role': 'user', 'content': sql_prompt}]
         )
-        sql = sql_resp.content[0].text.strip()
-        sql = re.sub(r'^```(?:sql)?\s*', '', sql, flags=re.IGNORECASE)
-        sql = re.sub(r'\s*```$', '', sql)
-        sql = sql.strip().rstrip(';')
+        raw_sql = sql_resp.content[0].text.strip()
+        raw_sql = re.sub(r'^```(?:json)?\s*', '', raw_sql, flags=re.IGNORECASE)
+        raw_sql = re.sub(r'\s*```$', '', raw_sql)
+        parsed = json.loads(raw_sql)
+        sql = parsed.get('answer_sql', '').strip().rstrip(';')
+        list_sql = parsed.get('list_sql', '').strip().rstrip(';')
+    except Exception as e:
+        return jsonify({'error': f'SQL generation error: {e}'}), 500
 
-        # Safety check
-        if any(kw in sql.upper() for kw in ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER']):
+    for s in [sql, list_sql]:
+        if s and any(kw in s.upper() for kw in ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER']):
             return jsonify({'error': 'Unsafe SQL blocked'}), 400
 
+    try:
         conn = get_db()
-        try:
-            cursor = conn.execute(sql)
-            cols = [d[0] for d in cursor.description]
-            rows = cursor.fetchall()
-            results = [dict(zip(cols, r)) for r in rows]
-        except Exception as e:
-            conn.close()
-            return jsonify({'error': f'SQL error: {e}', 'sql': sql}), 400
-        conn.close()
+        cursor = conn.execute(sql)
+        cols = [d[0] for d in cursor.description]
+        rows = cursor.fetchall()
+        results = [dict(zip(cols, r)) for r in rows]
 
+        row_previews = []
+        if list_sql:
+            try:
+                lcursor = conn.execute(list_sql)
+                lcols = [d[0] for d in lcursor.description]
+                lrows = lcursor.fetchall()
+                for r in lrows:
+                    rd = dict(zip(lcols, r))
+                    row_previews.append({
+                        'id': rd.get('id'),
+                        'name': rd.get('name', ''),
+                        'owner_name': rd.get('owner_name', ''),
+                        'owner_grad_school': rd.get('owner_grad_school', ''),
+                        'owner_undergrad_school': rd.get('owner_undergrad_school', ''),
+                        'sector': rd.get('sector', ''),
+                        'state': rd.get('state', ''),
+                        'status': rd.get('status', '')
+                    })
+            except Exception:
+                pass
+        conn.close()
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'SQL error: {e}', 'sql': sql}), 400
 
     # Step 2: Stream the AI summary
     summary_prompt = f"""The user asked: "{question}"
 
-The SQL query was:
-{sql}
-
 Query results ({len(results)} rows):
 {json.dumps(results[:50], indent=2)}
 
-Provide a concise, insightful answer to the user's question using the data. Use specific numbers and percentages. Format nicely with markdown if helpful."""
+Provide a concise, insightful answer using the data. Use specific numbers and percentages. Format with markdown."""
 
     def stream_answer():
-        # Send row previews if results are company-level rows (have 'id')
-        row_previews = []
-        if results and 'id' in results[0]:
-            for r in results[:150]:
-                row_previews.append({
-                    'id': r['id'],
-                    'name': r.get('name', ''),
-                    'sector': r.get('sector', ''),
-                    'state': r.get('state', ''),
-                    'status': r.get('status', '')
-                })
         yield f"data: {json.dumps({'sql': sql, 'row_count': len(results), 'rows': row_previews})}\n\n"
         try:
             with client.messages.stream(
@@ -980,6 +991,71 @@ Provide a concise, insightful answer to the user's question using the data. Use 
         yield "data: [DONE]\n\n"
 
     return Response(stream_with_context(stream_answer()), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@app.route('/api/universe/<int:company_id>/research', methods=['POST'])
+def research_owner(company_id):
+    """Deep AI background research on a company owner, streamed."""
+    conn = get_db()
+    row = conn.execute('SELECT * FROM deal_companies WHERE id=?', (company_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'error': 'Not found'}), 404
+    c = dict(row)
+
+    prompt = f"""You are a professional due diligence analyst at a search fund investment firm. Conduct a comprehensive background research report on the following business owner/CEO who is a potential acquisition target. Use your knowledge of companies, business schools, industries, and career patterns to provide the most thorough analysis possible.
+
+SUBJECT PROFILE:
+Name: {c.get('owner_name', 'Unknown')}
+Age: {c.get('owner_age', 'Unknown')} | Gender: {c.get('owner_gender', 'Unknown')} | Ethnicity: {c.get('owner_ethnicity', 'Unknown')}
+Company: {c.get('name', 'Unknown')} — {c.get('sector', '')} / {c.get('industry', '')} ({c.get('city', '')}, {c.get('state', '')})
+Employees: {c.get('employees', 'Unknown')} | Founded: {c.get('founded_year', 'Unknown')}
+Revenue: {'${:,.0f}'.format(c['revenue']) if c.get('revenue') else 'Unknown'} | EBITDA: {'${:,.0f}'.format(c['ebitda']) if c.get('ebitda') else 'Unknown'}
+Undergraduate: {c.get('owner_undergrad_school', 'Not listed')} — {c.get('owner_undergrad_major', '')}
+Graduate: {c.get('owner_grad_school', 'None')} ({c.get('owner_grad_degree', '')})
+Years Experience: {c.get('owner_years_experience', 'Unknown')}
+Previous Companies: {c.get('owner_prev_companies', 'None listed')}
+Bio: {c.get('owner_bio', 'None provided')}
+Business Description: {c.get('business_description', 'None')}
+
+Write a detailed background research report with these sections. Be specific, analytical, and flag anything noteworthy:
+
+## Identity & Credentials
+Assess credibility of listed credentials. What does their education pedigree signal? Are there inconsistencies?
+
+## Career Trajectory Analysis
+Analyze their career path and previous companies. What roles/seniority levels can be inferred? Does the trajectory make sense for their age and experience?
+
+## Industry Expertise
+How well-suited is their background for running {c.get('name', 'this business')} in {c.get('sector', 'this sector')}? What sector knowledge and relationships do they likely bring?
+
+## Network & Professional Circles
+Based on education and previous employers, what professional networks are they likely part of? Any notable alumni networks, industry associations, or communities?
+
+## Risk Flags & Concerns
+Anything in this profile that warrants further scrutiny. Credential gaps, career inconsistencies, red flags for post-acquisition transition.
+
+## Diligence Checklist
+Specific, actionable steps to verify and extend this research: LinkedIn search terms, background check priorities, reference check angles, public records to pull.
+
+## Acquisition Readiness Assessment
+2-3 sentences on this owner as a counterparty: their likely motivations for selling, transition risk, and overall attractiveness as an acquisition target."""
+
+    def stream():
+        try:
+            with client.messages.stream(
+                model='claude-sonnet-4-6',
+                max_tokens=2000,
+                messages=[{'role': 'user', 'content': prompt}]
+            ) as s:
+                for text in s.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
 

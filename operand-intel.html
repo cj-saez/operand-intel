@@ -565,6 +565,22 @@ td strong{color:var(--text);font-weight:600}
   </div>
 </div>
 
+<!-- Owner Research Modal -->
+<div class="modal-overlay" id="research-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:860px;width:94vw;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
+      <div>
+        <div class="modal-title" id="research-modal-title">Deep Research</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px" id="research-modal-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('research-modal')">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1">
+      <div id="research-content" style="font-size:13.5px;color:var(--text2);line-height:1.85;min-height:200px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Universe Detail Modal -->
 <div class="modal-overlay" id="universe-detail-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:760px;width:90vw">
@@ -1876,17 +1892,20 @@ function runUniverseQuery() {
             if (!gotMeta && d.sql !== undefined) {
               gotMeta = true;
               if (d.rows && d.rows.length > 0) {
-                resCountEl.textContent = d.rows.length;
+                var hasPeople = d.rows.some(function(r) { return r.owner_name; });
+                var label = hasPeople ? 'matching people' : 'matching companies';
                 resEl.style.display = 'block';
                 resListEl.style.display = 'none';
-                document.getElementById('universe-results-toggle').innerHTML = 'View ' + d.rows.length + ' matching companies ▼';
+                document.getElementById('universe-results-toggle').innerHTML = 'View ' + d.rows.length + ' ' + label + ' ▼';
                 var rowHtml = '';
                 for (var j = 0; j < d.rows.length; j++) {
                   var row = d.rows[j];
-                  var badge = row.status ? ('<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text3);margin-left:6px">' + row.status + '</span>') : '';
+                  var badge = row.status && row.status !== 'PROSPECT' ? ('<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text3);margin-left:6px">' + row.status + '</span>') : '';
+                  var primaryLabel = row.owner_name ? row.owner_name : row.name;
+                  var secondaryLabel = row.owner_name ? (row.name + (row.owner_grad_school ? ' · ' + row.owner_grad_school : '')) : ((row.sector || '') + (row.state ? ' · ' + row.state : ''));
                   rowHtml += '<div onclick="showUniverseDetail(' + row.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'">';
-                  rowHtml += '<div><span style="font-size:13px;font-weight:500;color:var(--text)">' + row.name + '</span>' + badge + '</div>';
-                  rowHtml += '<div style="font-size:12px;color:var(--text3)">' + (row.sector || '') + (row.state ? ' · ' + row.state : '') + '</div>';
+                  rowHtml += '<div><span style="font-size:13px;font-weight:500;color:var(--text)">' + primaryLabel + '</span>' + badge + '</div>';
+                  rowHtml += '<div style="font-size:12px;color:var(--text3);text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + secondaryLabel + '</div>';
                   rowHtml += '</div>';
                 }
                 resListEl.innerHTML = rowHtml;
@@ -1971,16 +1990,54 @@ function showUniverseDetail(id) {
     if (c.owner_bio) html += '<div style="margin-top:10px;font-size:13px;color:var(--text2);line-height:1.6">' + c.owner_bio + '</div>';
     html += '</div>';
 
-    html += '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
-    html += '<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Comparable Transactions</div>';
+    html += '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px">';
+    html += '<button class="btn btn-primary btn-sm" onclick="openResearchModal(' + c.id + ', ' + JSON.stringify(c.owner_name || c.name) + ')">Deep Research Owner</button>';
     html += '<button class="btn btn-ghost btn-sm" onclick="getComps(' + c.id + ', this)">Get AI Comps</button>';
     html += '</div>';
-    html += '<div id="comps-out-' + c.id + '" style="display:none;font-size:13px;color:var(--text2);line-height:1.75"></div>';
-    html += '</div>';
+    html += '<div id="comps-out-' + c.id + '" style="display:none;font-size:13px;color:var(--text2);line-height:1.75;margin-top:12px"></div>';
 
     document.getElementById('universe-detail-body').innerHTML = html;
     document.getElementById('universe-detail-modal').classList.add('open');
+  });
+}
+
+// ── Owner Deep Research ───────────────────────────────────────────────────────
+function openResearchModal(id, ownerName) {
+  document.getElementById('research-modal-title').textContent = 'Deep Research: ' + (ownerName || 'Owner');
+  document.getElementById('research-modal-sub').textContent = 'AI-powered background analysis · credentials · career · diligence checklist';
+  var content = document.getElementById('research-content');
+  content.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text3)"><span class="spinner"></span> Researching ' + (ownerName || 'owner') + '…</div>';
+  document.getElementById('research-modal').classList.add('open');
+
+  var fullText = '';
+  fetch('/api/universe/' + id + '/research', { method: 'POST' }).then(function(r) {
+    var reader = r.body.getReader();
+    var dec = new TextDecoder();
+    var buf = '';
+    content.innerHTML = '';
+    function read() {
+      return reader.read().then(function(result) {
+        if (result.done) return;
+        buf += dec.decode(result.value, { stream: true });
+        var lines = buf.split('\n');
+        buf = lines.pop();
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          if (!line.startsWith('data: ')) continue;
+          var payload = line.slice(6);
+          if (payload === '[DONE]') return;
+          try {
+            var d = JSON.parse(payload);
+            if (d.text) { fullText += d.text; content.innerHTML = renderMd(fullText); }
+            else if (d.error) { content.innerHTML = '<span style="color:var(--red)">' + d.error + '</span>'; }
+          } catch(e) {}
+        }
+        return read();
+      });
+    }
+    return read();
+  }).catch(function(e) {
+    content.innerHTML = '<span style="color:var(--red)">Error: ' + e.message + '</span>';
   });
 }
 
