@@ -608,6 +608,212 @@ def landing():
     return send_from_directory('.', 'landing.html')
 
 
+# ── AI Features ───────────────────────────────────────────────────────────────
+
+@app.route('/api/portfolio/narrative', methods=['POST'])
+def portfolio_narrative():
+    """Stream a quarterly portfolio narrative."""
+    conn = get_db()
+    funds = [dict(r) for r in conn.execute('SELECT * FROM funds ORDER BY vintage').fetchall()]
+    companies = [dict(r) for r in conn.execute('''
+        SELECT c.*, f.name as fund_name FROM companies c LEFT JOIN funds f ON c.fund_id=f.id
+        ORDER BY c.moic DESC NULLS LAST''').fetchall()]
+    searchers = [dict(r) for r in conn.execute(
+        'SELECT id,searcher_name,llc_name,status,score_color,headline_score,sector FROM searchers').fetchall()]
+    conn.close()
+
+    total_value = sum(f.get('total_value',0) or 0 for f in funds)
+    total_called = sum(f.get('called',0) or 0 for f in funds)
+    gross_moic = round(total_value / total_called, 2) if total_called else 0
+
+    prompt = f"""You are a managing partner at Operand Group, a search fund investment firm. Write a professional quarterly portfolio brief (Q1 2026) in first-person plural ("we", "our").
+
+PORTFOLIO DATA:
+Funds: {json.dumps(funds, indent=2)}
+Portfolio Companies ({len(companies)} total): {json.dumps(companies[:20], indent=2)}
+Searcher Pipeline ({len(searchers)} total): {json.dumps(searchers, indent=2)}
+Gross MOIC: {gross_moic}x across {len(companies)} companies
+
+Write ~400 words covering:
+1. **Portfolio Highlights** — top performers, key milestones, notable exits
+2. **Fund Status** — each fund's current position and trajectory
+3. **Pipeline** — searcher activity, new investments, deal flow quality
+4. **Outlook** — 2026 priorities and areas of focus
+
+Use specific company names and numbers. Tone: confident, LP-ready."""
+
+    def stream():
+        try:
+            with client.messages.stream(model='claude-sonnet-4-6', max_tokens=1200,
+                    messages=[{'role':'user','content':prompt}]) as s:
+                for text in s.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                    headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+
+@app.route('/api/searchers/<int:searcher_id>/coaching', methods=['POST'])
+def searcher_coaching(searcher_id):
+    """Stream AI coaching notes for a specific searcher."""
+    conn = get_db()
+    row = conn.execute('SELECT * FROM searchers WHERE id=?', (searcher_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'error': 'Not found'}), 404
+    s = dict(row)
+
+    prompt = f"""You are a managing partner at Operand Group advising a search fund investor.
+
+SEARCHER PROFILE:
+Name: {s.get('searcher_name')} | Fund: {s.get('llc_name')} | Type: {s.get('search_type')}
+Education: {s.get('education')} | Background: {s.get('professional_background')}
+Score: {s.get('headline_score')} ({s.get('score_color')}) | Status: {s.get('status')}
+Positive signals: {s.get('risk_positive')}
+Mixed signals: {s.get('risk_mixed')}
+Risk flags: {s.get('risk_negative')}
+Target industries: {s.get('target_industries')}
+Capital target: ${s.get('search_capital_target', 0):,.0f}
+Overall take: {s.get('overall_take')}
+
+Write personalized coaching notes (~300 words) structured as:
+**Strengths to Leverage** — what this searcher should double down on
+**Gaps to Address** — 2-3 specific development areas with actionable advice
+**Deal Sourcing Strategy** — tailored sourcing approach given their background and geography
+**Relationship Recommendations** — specific types of intermediaries or networks to prioritize
+Be direct, specific, and actionable. Use the searcher's name."""
+
+    def stream():
+        try:
+            with client.messages.stream(model='claude-sonnet-4-6', max_tokens=800,
+                    messages=[{'role':'user','content':prompt}]) as s:
+                for text in s.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                    headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+
+@app.route('/api/universe/<int:company_id>/status', methods=['PUT'])
+def update_universe_status(company_id):
+    data = request.get_json(silent=True) or {}
+    status = data.get('status', '').strip()
+    if status not in ('PROSPECT','PASSED','ACTIVE DILIGENCE','LOI SIGNED','ACQUIRED','DEAD'):
+        return jsonify({'error': 'Invalid status'}), 400
+    conn = get_db()
+    conn.execute('UPDATE deal_companies SET status=? WHERE id=?', (status, company_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/universe/<int:company_id>/comps', methods=['POST'])
+def universe_comps(company_id):
+    """Stream AI-generated comparable transactions for a deal company."""
+    conn = get_db()
+    row = conn.execute('SELECT * FROM deal_companies WHERE id=?', (company_id,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({'error': 'Not found'}), 404
+    c = dict(row)
+
+    rev_m = round(c['revenue']/1e6, 1) if c.get('revenue') else None
+    ebi_m = round(c['ebitda']/1e6, 1) if c.get('ebitda') else None
+
+    prompt = f"""You are an M&A analyst specializing in lower-middle-market transactions.
+
+TARGET COMPANY:
+Name: {c['name']} | Sector: {c['sector']} | Industry: {c['industry']}
+Location: {c.get('city')}, {c.get('state')} | Founded: {c.get('founded_year')}
+Revenue: ${rev_m}M | EBITDA: ${ebi_m}M | EBITDA Margin: {c.get('ebitda_margin')}%
+Asking Price: ${round(c['asking_price']/1e6,1) if c.get('asking_price') else 'N/A'}M
+EBITDA Multiple: {c.get('ebitda_multiple')}x | Employees: {c.get('employees')}
+
+Generate 5 comparable M&A transactions in this sector. For each comp include:
+- **[Company Name]** (acquired by [Buyer], [Year]): Revenue $XM, EBITDA $XM, EV/EBITDA Xx, TEV $XM. [1-sentence rationale for comparability]
+
+Then write 2-3 sentences on **Valuation Context**: how this company's asking multiple compares to the comps and whether it looks attractive, fair, or rich.
+
+Be specific with realistic numbers for lower-middle-market {c['sector']} transactions ($5M-$80M TEV range)."""
+
+    def stream():
+        try:
+            with client.messages.stream(model='claude-sonnet-4-6', max_tokens=900,
+                    messages=[{'role':'user','content':prompt}]) as s:
+                for text in s.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                    headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+
+@app.route('/api/compare/searchers', methods=['POST'])
+def compare_searchers():
+    """Stream AI comparison of two searchers."""
+    data = request.get_json(silent=True) or {}
+    ids = data.get('ids', [])
+    if len(ids) != 2:
+        return jsonify({'error': 'Provide exactly 2 searcher IDs'}), 400
+    conn = get_db()
+    rows = [dict(r) for r in conn.execute(
+        'SELECT * FROM searchers WHERE id IN (?,?)', ids).fetchall()]
+    conn.close()
+    if len(rows) != 2:
+        return jsonify({'error': 'Searcher(s) not found'}), 404
+
+    a, b = rows[0], rows[1]
+
+    prompt = f"""You are a managing partner at Operand Group comparing two search fund candidates for investment.
+
+SEARCHER A — {a.get('searcher_name')} ({a.get('llc_name')}):
+Type: {a.get('search_type')} | Education: {a.get('education')}
+Background: {a.get('professional_background')} | Capital Target: ${a.get('search_capital_target',0):,.0f}
+Score: {a.get('headline_score')} ({a.get('score_color')}) | Location: {a.get('location_specific')}
+Sectors: {a.get('target_industries')} | Status: {a.get('status')}
+Overall: {a.get('overall_take')}
+
+SEARCHER B — {b.get('searcher_name')} ({b.get('llc_name')}):
+Type: {b.get('search_type')} | Education: {b.get('education')}
+Background: {b.get('professional_background')} | Capital Target: ${b.get('search_capital_target',0):,.0f}
+Score: {b.get('headline_score')} ({b.get('score_color')}) | Location: {b.get('location_specific')}
+Sectors: {b.get('target_industries')} | Status: {b.get('status')}
+Overall: {b.get('overall_take')}
+
+Write a structured comparison (~350 words):
+
+## Head-to-Head
+A 4-row table (markdown) comparing: Education, Background, Search Type, Capital Structure, Geography/Sectors
+
+## Relative Strengths
+**{a.get('searcher_name', 'A')} advantages:** [2-3 bullet points]
+**{b.get('searcher_name', 'B')} advantages:** [2-3 bullet points]
+
+## Operand Fit
+Which searcher is a better fit for Operand's portfolio and why. Be direct with a clear recommendation."""
+
+    def stream():
+        try:
+            with client.messages.stream(model='claude-sonnet-4-6', max_tokens=1000,
+                    messages=[{'role':'user','content':prompt}]) as s:
+                for text in s.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                    headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+
 # ── Deal Universe (Company DB) ─────────────────────────────────────────────────
 
 UNIVERSE_SCHEMA = """

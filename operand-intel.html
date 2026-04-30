@@ -153,6 +153,7 @@ td strong{color:var(--text);font-weight:600}
 .modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
 .modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;transition:color var(--tr)}
 .modal-close:hover{color:var(--text)}
+.modal-title{font-size:15px;font-weight:600;color:var(--text)}
 .modal-body{padding:24px;max-height:80vh;overflow-y:auto}
 /* ── Upload zone ── */
 .upload-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:32px;text-align:center;cursor:pointer;transition:all var(--tr)}
@@ -224,6 +225,10 @@ td strong{color:var(--text);font-weight:600}
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         Universe
       </div>
+      <div class="nav-item" onclick="showPage('pipeline');loadPipeline()" id="nav-pipeline">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+        Pipeline
+      </div>
       <div class="nav-section">Tools</div>
       <div class="nav-item" onclick="showPage('ppm')" id="nav-ppm">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -249,8 +254,13 @@ td strong{color:var(--text);font-weight:600}
     <!-- ── PORTFOLIO ── -->
     <div class="page active" id="page-portfolio">
       <div class="page-hdr">
-        <h1>Portfolio Overview</h1>
-        <p id="portfolio-sub">Loading…</p>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><h1>Portfolio Overview</h1><p id="portfolio-sub">Loading…</p></div>
+          <button class="btn btn-ghost btn-sm" onclick="openNarrativeModal()" style="margin-top:4px">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Quarterly Brief
+          </button>
+        </div>
       </div>
       <div class="kpi-grid cols-4" id="portfolio-kpis"></div>
       <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-top:0" id="portfolio-returns"></div>
@@ -306,7 +316,15 @@ td strong{color:var(--text);font-weight:600}
 
     <!-- ── COMPANIES ── -->
     <div class="page" id="page-companies">
-      <div class="page-hdr"><h1>Companies</h1><p id="companies-sub"></p></div>
+      <div class="page-hdr">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><h1>Companies</h1><p id="companies-sub"></p></div>
+          <button class="btn btn-ghost btn-sm" onclick="exportCompaniesCSV()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+          </button>
+        </div>
+      </div>
       <div class="filter-bar" id="companies-filter"></div>
       <div class="table-wrap">
         <table id="companies-table">
@@ -342,6 +360,7 @@ td strong{color:var(--text);font-weight:600}
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               Ingest PPM
             </button>
+            <button id="compare-btn" class="btn btn-ghost btn-sm" onclick="openCompareModal()" style="display:none">Compare Selected</button>
             <button class="btn btn-primary btn-sm" onclick="openNewSearcher()">+ Add Searcher</button>
           </div>
         </div>
@@ -358,6 +377,7 @@ td strong{color:var(--text);font-weight:600}
           </div>
           <table>
             <thead><tr>
+              <th style="width:32px"></th>
               <th>Searcher / Fund</th><th>Type</th><th>Sector</th>
               <th class="num">Capital Target</th><th>Score</th>
               <th>Status</th><th>Fund</th><th></th>
@@ -378,6 +398,20 @@ td strong{color:var(--text);font-weight:600}
       <div id="searcher-profile-content"></div>
     </div>
 
+
+    <!-- ── PIPELINE ── -->
+    <div class="page" id="page-pipeline">
+      <div class="page-hdr">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><h1>Deal Pipeline</h1><p id="pipeline-sub" style="color:var(--text3);font-size:13px;margin-top:4px"></p></div>
+          <button class="btn btn-ghost btn-sm" onclick="loadPipeline()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div id="pipeline-board" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:16px;align-items:flex-start"></div>
+    </div>
 
     <!-- Universe page -->
     <div class="page" id="page-universe">
@@ -430,6 +464,10 @@ td strong{color:var(--text);font-weight:600}
           style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
           <option value="">All States</option>
         </select>
+        <button class="btn btn-ghost btn-sm" onclick="exportUniverseCSV()" title="Export to CSV">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
       </div>
       <div class="table-wrap">
         <table class="data-table">
@@ -483,6 +521,32 @@ td strong{color:var(--text);font-weight:600}
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Comparison Modal -->
+<div class="modal-overlay" id="compare-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:740px">
+    <div class="modal-header">
+      <div class="modal-title" id="compare-modal-title">Searcher Comparison</div>
+      <button class="modal-close" onclick="closeModal('compare-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="compare-content" style="font-size:14px;color:var(--text2);line-height:1.8;min-height:200px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Narrative Modal -->
+<div class="modal-overlay" id="narrative-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <div class="modal-title">Q1 2026 Portfolio Brief</div>
+      <button class="modal-close" onclick="closeModal('narrative-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="narrative-content" style="font-size:14px;color:var(--text2);line-height:1.8;min-height:200px"></div>
     </div>
   </div>
 </div>
@@ -566,7 +630,8 @@ function loadSearchers() {
 const PAGE_TITLES = {
   portfolio: 'Portfolio Overview', funds: 'Funds', 'fund-detail': 'Fund Detail',
   companies: 'Companies', 'company-detail': 'Company', searches: 'Searches',
-  searcher: 'Searcher Profile', universe: 'Company Universe', ppm: 'PPM Ingestion', ai: 'AI Analyst'
+  searcher: 'Searcher Profile', universe: 'Company Universe', pipeline: 'Deal Pipeline',
+  ppm: 'PPM Ingestion', ai: 'AI Analyst'
 };
 
 function showPage(name) {
@@ -949,6 +1014,7 @@ function renderSearchersTable(searchers) {
   document.getElementById('searches-count').textContent = `${searchers.length} results`;
   document.getElementById('searches-tbody').innerHTML = searchers.map(s => `
     <tr class="clickable" onclick="showSearcherProfile(${s.id})">
+      <td><input type="checkbox" style="cursor:pointer" onchange="toggleSearcherSelect(${s.id}, this)" onclick="event.stopPropagation()"></td>
       <td>
         <div style="font-weight:600;color:var(--text)">${s.searcher_name || s.searcher_identifier || '—'}</div>
         <div style="font-size:11px;color:var(--text3)">${s.llc_name || ''}</div>
@@ -960,7 +1026,7 @@ function renderSearchersTable(searchers) {
       <td>${statusBadge(s.status)}</td>
       <td><span style="font-size:12px;color:var(--text3)">${s.fund_name || s.fund_id || '—'}</span></td>
       <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showSearcherProfile(${s.id})">View →</button></td>
-    </tr>`).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">No searchers found</td></tr>`;
+    </tr>`).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No searchers found</td></tr>`;
 }
 
 // ── Searcher Profile ──────────────────────────────────────────────────────────
@@ -1088,11 +1154,13 @@ async function showSearcherProfile(id) {
     <div class="ai-panel" style="margin-bottom:20px">
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:13px;font-weight:600;color:var(--text)">AI Analysis</span>
-        <button class="btn btn-primary btn-sm" onclick="analyzeSearcher(${s.id})" id="analyze-btn-${s.id}">Ask AI about this searcher</button>
+        <button class="btn btn-primary btn-sm" onclick="analyzeSearcher(${s.id})" id="analyze-btn-${s.id}">Ask AI</button>
+        <button class="btn btn-ghost btn-sm" onclick="getCoaching(${s.id})" id="coaching-btn-${s.id}" style="margin-left:6px">Get Coaching Notes</button>
       </div>
       <div class="ai-messages" id="searcher-ai-messages-${s.id}" style="min-height:80px;max-height:200px">
         <div class="ai-msg ai" style="font-size:12px;color:var(--text3)">Click "Ask AI" to get an analysis of this searcher profile.</div>
       </div>
+      <div id="coaching-out-${s.id}" style="display:none;margin-top:12px;background:var(--surface2);border-radius:var(--r);padding:14px;font-size:13px;color:var(--text2);line-height:1.75"></div>
     </div>
   `;
 
@@ -1369,6 +1437,250 @@ function renderMd(text) {
 }
 
 
+// ── Feature 3: Portfolio Narrative ────────────────────────────────────────────
+function openNarrativeModal() {
+  openModal('narrative-modal');
+  var el = document.getElementById('narrative-content');
+  el.innerHTML = '<span class="spinner"></span>';
+  fetch('/api/portfolio/narrative', {method:'POST'})
+    .then(function(r) {
+      var reader = r.body.getReader();
+      var dec = new TextDecoder();
+      var buf = '', full = '';
+      el.innerHTML = '';
+      function read() {
+        return reader.read().then(function(res) {
+          if (res.done) return;
+          buf += dec.decode(res.value, {stream:true});
+          var lines = buf.split('\n'); buf = lines.pop();
+          for (var i=0; i<lines.length; i++) {
+            var line = lines[i];
+            if (!line.startsWith('data: ')) continue;
+            var payload = line.slice(6);
+            if (payload === '[DONE]') return;
+            try {
+              var d = JSON.parse(payload);
+              if (d.text) { full += d.text; el.innerHTML = renderMd(full); }
+              if (d.error) { el.innerHTML = '<span style="color:var(--red)">' + d.error + '</span>'; }
+            } catch(e2) {}
+          }
+          return read();
+        });
+      }
+      return read();
+    });
+}
+
+// ── Feature 4: Searcher Coaching ──────────────────────────────────────────────
+function getCoaching(id) {
+  var btn = document.getElementById('coaching-btn-' + id);
+  var out = document.getElementById('coaching-out-' + id);
+  if (!btn || !out) return;
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  out.style.display = 'block';
+  out.innerHTML = '<span class="spinner"></span>';
+  fetch('/api/searchers/' + id + '/coaching', {method:'POST'})
+    .then(function(r) {
+      var reader = r.body.getReader();
+      var dec = new TextDecoder();
+      var buf = '', full = '';
+      out.innerHTML = '';
+      function read() {
+        return reader.read().then(function(res) {
+          if (res.done) { btn.disabled=false; btn.textContent='Get Coaching Notes'; return; }
+          buf += dec.decode(res.value, {stream:true});
+          var lines = buf.split('\n'); buf = lines.pop();
+          for (var i=0; i<lines.length; i++) {
+            var line = lines[i];
+            if (!line.startsWith('data: ')) continue;
+            var payload = line.slice(6);
+            if (payload === '[DONE]') { btn.disabled=false; btn.textContent='Refresh'; return; }
+            try {
+              var d = JSON.parse(payload);
+              if (d.text) { full += d.text; out.innerHTML = renderMd(full); }
+            } catch(e2) {}
+          }
+          return read();
+        });
+      }
+      return read();
+    });
+}
+
+// ── Feature 5: Pipeline Kanban ────────────────────────────────────────────────
+var pipelineData = [];
+var PIPELINE_COLS = ['PROSPECT','ACTIVE DILIGENCE','LOI SIGNED','ACQUIRED','PASSED','DEAD'];
+var PIPELINE_COLORS = {
+  'PROSPECT':'blue','ACTIVE DILIGENCE':'amber','LOI SIGNED':'amber',
+  'ACQUIRED':'green','PASSED':'gray','DEAD':'red'
+};
+
+function loadPipeline() {
+  document.getElementById('pipeline-sub').textContent = 'Loading...';
+  fetch('/api/universe?page=1&per_page=500').then(function(r) { return r.json(); }).then(function(data) {
+    pipelineData = data.rows || [];
+    document.getElementById('pipeline-sub').textContent = pipelineData.length + ' companies';
+    renderPipeline();
+  });
+}
+
+function renderPipeline() {
+  var board = document.getElementById('pipeline-board');
+  var byStatus = {};
+  PIPELINE_COLS.forEach(function(s) { byStatus[s] = []; });
+  pipelineData.forEach(function(c) { if (byStatus[c.status]) byStatus[c.status].push(c); });
+
+  board.innerHTML = PIPELINE_COLS.map(function(col) {
+    var cos = byStatus[col] || [];
+    var color = PIPELINE_COLORS[col] || 'gray';
+    var cards = cos.slice(0, 30).map(function(c) {
+      var rev = c.revenue ? ('$' + (c.revenue/1e6).toFixed(1) + 'M') : '-';
+      var ebi = c.ebitda ? ('$' + (c.ebitda/1e6).toFixed(1) + 'M') : '-';
+      return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="showUniverseDetail(' + c.id + ')">' +
+        '<div style="font-weight:600;font-size:13px;color:var(--text);margin-bottom:4px">' + (c.name||'') + '</div>' +
+        '<div style="font-size:11px;color:var(--text3);margin-bottom:6px">' + (c.sector||'') + ' · ' + (c.state||'') + '</div>' +
+        '<div style="display:flex;gap:8px;font-size:11px;color:var(--text2)">' +
+        '<span>Rev: ' + rev + '</span><span>EBITDA: ' + ebi + '</span></div>' +
+        '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">' +
+        PIPELINE_COLS.filter(function(s) { return s !== col; }).slice(0,3).map(function(target) {
+          return '<button style="font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer" onclick="event.stopPropagation();movePipelineCard(' + c.id + ',\'' + target + '\')" title="Move to ' + target + '">→ ' + target.split(' ')[0] + '</button>';
+        }).join('') + '</div></div>';
+    }).join('');
+    var more = cos.length > 30 ? '<div style="font-size:11px;color:var(--text3);text-align:center;padding:8px">+' + (cos.length-30) + ' more</div>' : '';
+    return '<div style="width:220px;flex-shrink:0">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+      '<div style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3)">' + col + '</div>' +
+      '<span class="badge ' + color + '" style="font-size:10px">' + cos.length + '</span></div>' +
+      '<div style="min-height:80px">' + cards + more + '</div></div>';
+  }).join('');
+}
+
+function movePipelineCard(id, newStatus) {
+  fetch('/api/universe/' + id + '/status', {
+    method: 'PUT',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({status: newStatus})
+  }).then(function() {
+    var c = pipelineData.find(function(x) { return x.id === id; });
+    if (c) { c.status = newStatus; renderPipeline(); }
+  });
+}
+
+// ── Feature 8: CSV Export ─────────────────────────────────────────────────────
+function downloadCSV(filename, rows, headers) {
+  var lines = [headers.join(',')];
+  rows.forEach(function(row) {
+    lines.push(headers.map(function(h) {
+      var v = row[h] == null ? '' : String(row[h]);
+      return v.indexOf(',') >= 0 || v.indexOf('"') >= 0 ? '"' + v.split('"').join('""') + '"' : v;
+    }).join(','));
+  });
+  var blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function exportCompaniesCSV() {
+  downloadCSV('portfolio_companies.csv', allCompanies,
+    ['name','fund_name','sector','status','invested','realized','unrealized','total_return','moic','irr']);
+}
+
+function exportUniverseCSV() {
+  fetch('/api/universe?page=1&per_page=3000').then(function(r) { return r.json(); }).then(function(data) {
+    downloadCSV('company_universe.csv', data.rows || [],
+      ['name','sector','industry','state','city','revenue','ebitda','ebitda_multiple','status',
+       'owner_name','owner_age','owner_gender','owner_ethnicity','owner_grad_school','owner_prev_companies']);
+  });
+}
+
+// ── Feature 9: Comparable Transactions ───────────────────────────────────────
+function getComps(id, btn) {
+  var out = document.getElementById('comps-out-' + id);
+  if (!out) return;
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  out.style.display = 'block';
+  out.innerHTML = '<span class="spinner"></span>';
+  fetch('/api/universe/' + id + '/comps', {method:'POST'})
+    .then(function(r) {
+      var reader = r.body.getReader();
+      var dec = new TextDecoder();
+      var buf = '', full = '';
+      out.innerHTML = '';
+      function read() {
+        return reader.read().then(function(res) {
+          if (res.done) { btn.disabled=false; btn.textContent='Refresh Comps'; return; }
+          buf += dec.decode(res.value, {stream:true});
+          var lines = buf.split('\n'); buf = lines.pop();
+          for (var i=0; i<lines.length; i++) {
+            var line = lines[i];
+            if (!line.startsWith('data: ')) continue;
+            var payload = line.slice(6);
+            if (payload === '[DONE]') { btn.disabled=false; btn.textContent='Refresh Comps'; return; }
+            try {
+              var d = JSON.parse(payload);
+              if (d.text) { full += d.text; out.innerHTML = renderMd(full); }
+            } catch(e2) {}
+          }
+          return read();
+        });
+      }
+      return read();
+    });
+}
+
+// ── Feature 10: Searcher Comparison ──────────────────────────────────────────
+var selectedSearcherIds = [];
+
+function toggleSearcherSelect(id, checkbox) {
+  if (checkbox.checked) {
+    if (selectedSearcherIds.indexOf(id) < 0) selectedSearcherIds.push(id);
+  } else {
+    selectedSearcherIds = selectedSearcherIds.filter(function(x) { return x !== id; });
+  }
+  var btn = document.getElementById('compare-btn');
+  if (btn) btn.style.display = selectedSearcherIds.length === 2 ? 'inline-flex' : 'none';
+}
+
+function openCompareModal() {
+  if (selectedSearcherIds.length !== 2) return;
+  openModal('compare-modal');
+  var content = document.getElementById('compare-content');
+  content.innerHTML = '<span class="spinner"></span>';
+  fetch('/api/compare/searchers', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ids: selectedSearcherIds})
+  }).then(function(r) {
+    var reader = r.body.getReader();
+    var dec = new TextDecoder();
+    var buf = '', full = '';
+    content.innerHTML = '';
+    function read() {
+      return reader.read().then(function(res) {
+        if (res.done) return;
+        buf += dec.decode(res.value, {stream:true});
+        var lines = buf.split('\n'); buf = lines.pop();
+        for (var i=0; i<lines.length; i++) {
+          var line = lines[i];
+          if (!line.startsWith('data: ')) continue;
+          var payload = line.slice(6);
+          if (payload === '[DONE]') return;
+          try {
+            var d = JSON.parse(payload);
+            if (d.text) { full += d.text; content.innerHTML = renderMd(full); }
+          } catch(e2) {}
+        }
+        return read();
+      });
+    }
+    return read();
+  });
+}
+
 // ── Universe ──────────────────────────────────────────────────────────────────
 var univInited = false;
 var US_STATE_LIST = ['AL','AR','AZ','CA','CO','FL','GA','IL','IN','KS','KY','LA',
@@ -1578,6 +1890,14 @@ function showUniverseDetail(id) {
     html += '</div>';
     if (c.owner_prev_companies) html += '<div style="margin-top:10px">' + dr('Previous', c.owner_prev_companies) + '</div>';
     if (c.owner_bio) html += '<div style="margin-top:10px;font-size:13px;color:var(--text2);line-height:1.6">' + c.owner_bio + '</div>';
+    html += '</div>';
+
+    html += '<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    html += '<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Comparable Transactions</div>';
+    html += '<button class="btn btn-ghost btn-sm" onclick="getComps(' + c.id + ', this)">Get AI Comps</button>';
+    html += '</div>';
+    html += '<div id="comps-out-' + c.id + '" style="display:none;font-size:13px;color:var(--text2);line-height:1.75"></div>';
     html += '</div>';
 
     document.getElementById('universe-detail-body').innerHTML = html;
