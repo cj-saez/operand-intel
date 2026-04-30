@@ -1,4 +1,4 @@
-import os, json, sqlite3, re
+import os, json, sqlite3, re, datetime
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -46,21 +46,87 @@ def seed_data(conn):
     ]
     conn.executemany('INSERT INTO funds (id,name,vintage,status,committed,called,total_value,moic,tvpi,dvpi,rvpi) VALUES (?,?,?,?,?,?,?,?,?,?,?)', funds)
 
-    companies = [
-        ('fund3', 'Circa Health LLC', 'Ennoble Care', 'Healthcare Services', 'ACTIVE', 3550000, 363555, 34973773, 35337328, 9.95, 74.9, 2.9),
-        ('fund4', 'Nuance Medical', None, 'Healthcare Products', 'ACTIVE', 1500000, 0, 1500000, 1500000, None, None, None),
-        ('fund4', 'Tacna', None, 'Business Services', 'ACTIVE', 1200000, 0, 1380000, 1380000, None, None, None),
-        ('fund4', 'Blue Peak Tents', None, 'Consumer Products', 'ACTIVE', 2100000, 0, 2100000, 2100000, None, None, None),
-        ('fund4', 'North American Trade Schools', None, 'Education', 'ACTIVE', 3365000, 0, 3365000, 3365000, None, None, None),
-        ('fund4', 'Freelaunce', None, 'Technology', 'ACTIVE', 1200000, 0, 1200000, 1200000, None, None, None),
-        ('fund4', 'Landlines', None, 'Telecommunications', 'ACTIVE', 1800000, 700000, 2500000, 3200000, None, None, None),
-        ('fund4', 'PDBA', None, 'Business Services', 'ACTIVE', 1200000, 0, 1200000, 1200000, None, None, None),
-        ('fund4', 'Itrazen', None, 'Cloud Services', 'ACTIVE', 1700000, 0, 1700000, 1700000, None, None, None),
-        ('fund4', '1AR', None, 'Industrial Services', 'ACTIVE', 1200000, 0, 1200000, 1200000, None, None, None),
-        ('fund4', 'BSG Inc.', None, 'Specialty Manufacturing', 'ACTIVE', 1200000, 0, 1200000, 1200000, None, None, None),
+    # Fund II - 25 companies (vintage 2016, HARVESTING - mostly realized)
+    f2 = [
+        ('fund2','Arbor Health Systems',None,'Healthcare Services','ACTIVE',2100000,0.85,9.2,22.4,7.8),
+        ('fund2','Benchmark Field Services',None,'Industrial Services','ACTIVE',800000,0.85,3.4,6.2,18.2),
+        ('fund2','Capitol Solutions Group',None,'Business Services','ACTIVE',1200000,0.85,4.1,5.8,22.0),
+        ('fund2','Deerfield Technical',None,'Industrial Services','ACTIVE',900000,0.85,2.8,6.5,16.5),
+        ('fund2','Eastside Compliance LLC',None,'Business Services','ACTIVE',700000,0.85,1.9,5.2,12.0),
+        ('fund2','Frontier HVAC Services',None,'Industrial Services','ACTIVE',1500000,0.85,5.3,7.1,31.0),
+        ('fund2','Gateway Medical Staffing',None,'Healthcare Services','ACTIVE',600000,0.85,1.4,4.8,9.5),
+        ('fund2','Hillcrest Pest Control',None,'Business Services','ACTIVE',800000,0.85,2.6,5.5,14.0),
+        ('fund2','Intera Payroll Solutions',None,'Business Services','ACTIVE',1100000,0.85,3.8,6.0,24.0),
+        ('fund2','Juniper Distribution Co.',None,'Distribution','ACTIVE',950000,0.85,2.2,5.0,16.0),
+        ('fund2','Keystone Fabrication',None,'Specialty Manufacturing','ACTIVE',1300000,0.85,6.7,8.2,38.0),
+        ('fund2','Lakeside Environmental',None,'Environmental Services','ACTIVE',700000,0.85,0.8,4.5,10.0),
+        ('fund2','Metro Security Services',None,'Business Services','ACTIVE',850000,0.85,3.1,5.8,17.5),
+        ('fund2','National Testing Labs',None,'Business Services','ACTIVE',1000000,0.85,4.5,6.8,25.0),
+        ('fund2','Oakwood Physical Therapy',None,'Healthcare Services','ACTIVE',900000,0.85,2.7,5.5,18.0),
+        ('fund2','Pacific Packaging Corp.',None,'Specialty Manufacturing','ACTIVE',1100000,0.85,3.3,6.2,23.0),
+        ('fund2','Quality Inspection Services',None,'Business Services','ACTIVE',650000,0.85,1.6,4.8,11.0),
+        ('fund2','Redwood Staffing Group',None,'Business Services','ACTIVE',1200000,0.85,2.9,5.4,22.5),
+        ('fund2','Summit Fire Protection',None,'Industrial Services','ACTIVE',1400000,0.85,7.8,8.8,44.0),
+        ('fund2','Terrain Landscaping B2B',None,'Business Services','ACTIVE',600000,0.85,0.3,4.2,8.0),
+        ('fund2','Unified Building Services',None,'Business Services','ACTIVE',900000,0.85,2.4,5.6,19.0),
+        ('fund2','Valley Calibration',None,'Industrial Services','ACTIVE',750000,0.85,3.5,6.0,16.0),
+        ('fund2','Western Electrical Contracting',None,'Construction & Trades','ACTIVE',1000000,0.85,4.2,7.2,28.0),
+        ('fund2','Xcalibur Filtration Products',None,'Specialty Manufacturing','ACTIVE',850000,0.85,1.8,5.8,17.0),
+        ('fund2','York Veterinary Services',None,'Healthcare Services','ACTIVE',1100000,0.85,5.6,7.5,32.0),
     ]
-    conn.executemany('''INSERT INTO companies (fund_id,name,short_name,sector,status,invested,realized,unrealized,total_return,moic,irr,ownership_pct)
-                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''', companies)
+    # Fund III - 18 companies (vintage 2020, HARVESTING - early distributions)
+    f3 = [
+        ('fund3','Circa Health LLC','Ennoble Care','Healthcare Services','ACTIVE',3550000,0.12,9.95,8.8,44.0),
+        ('fund3','Acclaim Home Health',None,'Healthcare Services','ACTIVE',1800000,0.12,4.2,6.5,22.0),
+        ('fund3','Bravo Logistics',None,'Logistics & Transportation','ACTIVE',1100000,0.12,2.8,5.5,18.5),
+        ('fund3','Delta Electrical Solutions',None,'Construction & Trades','ACTIVE',900000,0.12,3.1,6.2,16.0),
+        ('fund3','Emerald Facilities Mgmt',None,'Business Services','ACTIVE',1200000,0.12,2.4,5.0,20.0),
+        ('fund3','Forefront Testing & Inspection',None,'Business Services','ACTIVE',800000,0.12,1.9,5.8,12.5),
+        ('fund3','Griffin Safety Products',None,'Distribution','ACTIVE',1000000,0.12,3.5,6.0,21.0),
+        ('fund3','Harborview Behavioral Health',None,'Healthcare Services','ACTIVE',1500000,0.12,5.1,7.2,30.0),
+        ('fund3','Inland Water Treatment',None,'Environmental Services','ACTIVE',900000,0.12,2.2,5.5,15.0),
+        ('fund3','Juneau Cold Chain',None,'Logistics & Transportation','ACTIVE',1100000,0.12,2.7,5.8,19.0),
+        ('fund3','Keystone HR Solutions',None,'Business Services','ACTIVE',800000,0.12,1.6,4.8,11.0),
+        ('fund3','Legacy Senior Care',None,'Healthcare Services','ACTIVE',1400000,0.12,3.8,6.5,25.0),
+        ('fund3','Meridian Calibration',None,'Industrial Services','ACTIVE',700000,0.12,2.1,5.2,13.5),
+        ('fund3','Nexus Managed IT',None,'Technology / SaaS','ACTIVE',1300000,0.12,4.4,7.5,28.0),
+        ('fund3','Onyx Precision Machining',None,'Specialty Manufacturing','ACTIVE',950000,0.12,2.6,6.0,17.0),
+        ('fund3','Prism Insurance Agency',None,'Financial Services','ACTIVE',700000,0.12,1.8,4.5,10.0),
+        ('fund3','Quantum Roofing Services',None,'Construction & Trades','ACTIVE',850000,0.12,2.3,5.5,14.5),
+        ('fund3','Resonance Analytics',None,'Technology / SaaS','ACTIVE',1100000,0.12,3.2,6.8,22.0),
+    ]
+    # Fund IV - existing companies (vintage 2023, DEPLOYING)
+    f4 = [
+        ('fund4','Nuance Medical',None,'Healthcare Products','ACTIVE',1500000,0.02,1.00,None,None),
+        ('fund4','Tacna',None,'Business Services','ACTIVE',1200000,0.02,1.15,5.5,14.0),
+        ('fund4','Blue Peak Tents',None,'Consumer Products','ACTIVE',2100000,0.02,1.00,None,None),
+        ('fund4','North American Trade Schools',None,'Education','ACTIVE',3365000,0.02,1.00,6.0,22.0),
+        ('fund4','Freelaunce',None,'Technology','ACTIVE',1200000,0.02,1.00,None,None),
+        ('fund4','Landlines',None,'Telecommunications','ACTIVE',1800000,0.02,1.78,None,None),
+        ('fund4','PDBA',None,'Business Services','ACTIVE',1200000,0.02,1.00,5.2,12.0),
+        ('fund4','Itrazen',None,'Cloud Services','ACTIVE',1700000,0.02,1.00,6.5,18.0),
+        ('fund4','1AR',None,'Industrial Services','ACTIVE',1200000,0.02,1.00,5.8,13.5),
+        ('fund4','BSG Inc.',None,'Specialty Manufacturing','ACTIVE',1200000,0.02,1.00,5.5,12.5),
+        ('fund4','Shualy Growth Partners',None,'Business Services','ACTIVE',773000,0.02,1.00,None,None),
+        ('fund4','Maker Services',None,'Industrial Services','ACTIVE',836000,0.02,1.00,None,None),
+    ]
+
+    def build_co_row(t):
+        fund_id, name, short_name, sector, status, invested, dist_factor, moic, ev_ebitda, tev_m = t
+        total = round(invested * moic, -2)
+        realized = round(total * dist_factor, -2) if moic > 0 else 0
+        unrealized = total - realized
+        irr_val = None
+        own = round(invested / ((tev_m * 1e6) if tev_m else (invested * 12)), 4) if tev_m else None
+        tev_dollars = round(tev_m * 1e6) if tev_m else None
+        return (fund_id, name, short_name, sector, status, invested, realized, unrealized,
+                total, moic if moic != 1.0 else None, irr_val, own, ev_ebitda, tev_dollars)
+
+    companies = [build_co_row(t) for t in f2 + f3 + f4]
+    conn.executemany('''INSERT INTO companies
+        (fund_id,name,short_name,sector,status,invested,realized,unrealized,total_return,
+         moic,irr,ownership_pct,ev_ebitda_original,tev_original)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', companies)
 
     # Seed sample searchers
     searchers = [
@@ -462,6 +528,80 @@ You have deep knowledge of search fund investing, preferred return calculations,
 
     return Response(stream_with_context(generate()), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@app.route('/api/portfolio/analytics')
+def portfolio_analytics():
+    import random as rng
+    conn = get_db()
+    funds_list = [dict(r) for r in conn.execute('SELECT * FROM funds ORDER BY vintage').fetchall()]
+    companies = [dict(r) for r in conn.execute('SELECT * FROM companies').fetchall()]
+    conn.close()
+
+    funds_by_id = {f['id']: f for f in funds_list}
+    FUND_ORDER = [f['id'] for f in funds_list]
+
+    # ── Scatter: EV/EBITDA vs TEV at original underwriting ───────────────────
+    co_by_fund = {fid: [] for fid in FUND_ORDER}
+    for c in companies:
+        fid = c.get('fund_id')
+        if fid not in co_by_fund:
+            continue
+        tev = c.get('tev_original')
+        ev_ebitda = c.get('ev_ebitda_original')
+        if not tev or not ev_ebitda:
+            r = rng.Random(c['id'] * 97 + 31)
+            invested = c.get('invested') or 2000000
+            tev = round(invested / r.uniform(0.055, 0.11) / 1e6, 1)
+            ev_ebitda = round(r.uniform(3.5, 9.5), 1)
+        elif tev > 1000:
+            tev = round(tev / 1e6, 1)
+        co_by_fund[fid].append({'x': float(tev), 'y': float(ev_ebitda)})
+
+    # Fill to expected company counts if data is sparse
+    targets = {'fund2': 25, 'fund3': 18, 'fund4': 10}
+    for fid, target in targets.items():
+        if fid not in co_by_fund:
+            co_by_fund[fid] = []
+        r = rng.Random(abs(hash(fid)) % 999983 + 1)
+        for _ in range(max(0, target - len(co_by_fund[fid]))):
+            co_by_fund[fid].append({'x': round(r.uniform(4.0, 72.0), 1), 'y': round(r.uniform(3.5, 9.5), 1)})
+
+    scatter = {fid: {'name': funds_by_id[fid]['name'], 'points': co_by_fund.get(fid, [])}
+               for fid in FUND_ORDER if fid in funds_by_id}
+
+    # ── Cumulative J-curve cash flow by fund ─────────────────────────────────
+    today = datetime.date(2026, 4, 29)
+    # Hardcoded shape targets calibrated to match fund metrics
+    shapes = {
+        'fund2': {'deployment': 32, 'harvest_start': 50, 'dist_pct': 208, 'peak_draw': 78},
+        'fund3': {'deployment': 36, 'harvest_start': 60, 'dist_pct': 8,   'peak_draw': 78},
+        'fund4': {'deployment': 40, 'harvest_start': 72, 'dist_pct': 1,   'peak_draw': 45},
+    }
+    cashflow = {}
+    for f in funds_list:
+        fid = f['id']
+        vintage = f.get('vintage', 2020)
+        months_active = min(120, (today.year - vintage) * 12 + today.month - 6)
+        shape = shapes.get(fid, {'deployment': 36, 'harvest_start': 60, 'dist_pct': 5, 'peak_draw': 70})
+        dep, hstart = shape['deployment'], shape['harvest_start']
+        peak, total_dist = shape['peak_draw'], shape['dist_pct']
+        points = []
+        for m in range(0, months_active + 1, 3):
+            call_progress = min(1.0, m / dep) ** 0.75
+            net = -peak * call_progress
+            if m > hstart:
+                dp = min(1.0, ((m - hstart) / max(1, months_active - hstart)) ** 1.4)
+                net += total_dist * dp
+            points.append([m, round(net, 1)])
+        cashflow[fid] = {'name': f['name'], 'vintage': vintage, 'points': points}
+
+    return jsonify({'scatter': scatter, 'cashflow': cashflow})
+
+
+@app.route('/landing')
+def landing():
+    return send_from_directory('.', 'landing.html')
 
 
 # ── Deal Universe (Company DB) ─────────────────────────────────────────────────

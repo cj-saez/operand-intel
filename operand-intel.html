@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>∈ σperand</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -254,6 +255,26 @@ td strong{color:var(--text);font-weight:600}
       <div class="kpi-grid cols-4" id="portfolio-kpis"></div>
       <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-top:0" id="portfolio-returns"></div>
       <div style="margin-top:24px" id="fund-cards-wrap"></div>
+      <!-- Portfolio Analytics -->
+      <div style="margin-top:32px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:16px">Portfolio Analytics</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Underwriting Multiples</div>
+            <div id="scatter-legend" style="display:flex;gap:16px;font-size:12px;color:var(--text3)"></div>
+          </div>
+          <div style="position:relative;height:300px"><canvas id="chart-scatter"></canvas></div>
+          <div style="text-align:center;font-size:11px;color:var(--text3);margin-top:8px">TEV ($M)</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Net Cumulative Cash Flow by Fund — Time Normalized</div>
+            <div id="cashflow-legend" style="display:flex;gap:16px;font-size:12px;color:var(--text3)"></div>
+          </div>
+          <div style="position:relative;height:300px"><canvas id="chart-cashflow"></canvas></div>
+          <div style="text-align:center;font-size:11px;color:var(--text3);margin-top:8px">Months Since Inception</div>
+        </div>
+      </div>
     </div>
 
     <!-- ── FUNDS ── -->
@@ -372,8 +393,8 @@ td strong{color:var(--text);font-weight:600}
             onkeydown="if(event.key==='Enter')runUniverseQuery()">
           <button class="btn btn-primary" onclick="runUniverseQuery()" id="universe-query-btn">Ask</button>
         </div>
-        <div id="universe-ai-sql" style="display:none;font-size:11px;color:var(--text3);font-family:monospace;background:var(--bg);padding:6px 10px;border-radius:4px;margin-bottom:8px;white-space:pre-wrap"></div>
-        <div id="universe-ai-answer" style="font-size:13px;color:var(--text2);line-height:1.65"></div>
+        <div id="universe-ai-sql" style="display:none"></div>
+        <div id="universe-ai-answer" style="font-size:14px;color:var(--text);line-height:1.75;background:var(--surface2);border-radius:var(--r);padding:16px;margin-top:8px;min-height:48px;display:none"></div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost" style="font-size:11px" onclick="setUnivQ(this)">% Booth MBAs</button>
           <button class="btn btn-ghost" style="font-size:11px" onclick="setUnivQ(this)">Top 5 undergrad schools</button>
@@ -611,6 +632,100 @@ function renderPortfolio() {
     <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Funds</div>
     <div class="fund-cards">${allFunds.map(f => fundCard(f)).join('')}</div>
   `;
+  loadAnalyticsCharts();
+}
+
+var _scatterChart = null, _cashflowChart = null;
+var _analyticsLoaded = false;
+
+function loadAnalyticsCharts() {
+  if (_analyticsLoaded) return;
+  _analyticsLoaded = true;
+  fetch('/api/portfolio/analytics').then(function(r) { return r.json(); }).then(function(data) {
+    renderAnalyticsCharts(data);
+  }).catch(function(e) { console.error('analytics error', e); });
+}
+
+function renderAnalyticsCharts(data) {
+  var FC = {fund2: '#3b82f6', fund3: '#22d3ee', fund4: '#34d399'};
+  var gridColor = 'rgba(255,255,255,0.06)';
+  var tickColor = '#64748b';
+  var Chart = window.Chart;
+  if (!Chart) return;
+
+  // Scatter
+  if (_scatterChart) _scatterChart.destroy();
+  var scatterSets = Object.keys(data.scatter || {}).map(function(fid) {
+    return {
+      label: data.scatter[fid].name,
+      data: data.scatter[fid].points,
+      backgroundColor: FC[fid] || '#888',
+      pointRadius: 5, pointHoverRadius: 7
+    };
+  });
+  _scatterChart = new Chart(document.getElementById('chart-scatter'), {
+    type: 'scatter',
+    data: { datasets: scatterSets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.x + 'M TEV, ' + ctx.parsed.y + 'x EV/EBITDA'; } } }
+      },
+      scales: {
+        x: { title: { display: false }, grid: { color: gridColor }, ticks: { color: tickColor }, min: 0 },
+        y: { title: { display: true, text: 'EV / EBITDA', color: tickColor, font: { size: 11 } }, grid: { color: gridColor }, ticks: { color: tickColor }, min: 0 }
+      }
+    }
+  });
+  var legendHtml = '';
+  Object.keys(FC).forEach(function(fid) {
+    if (data.scatter && data.scatter[fid]) {
+      legendHtml += '<span style="display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:' + FC[fid] + ';flex-shrink:0"></span>' + data.scatter[fid].name + '</span>';
+    }
+  });
+  document.getElementById('scatter-legend').innerHTML = legendHtml;
+
+  // Cash flow
+  if (_cashflowChart) _cashflowChart.destroy();
+  var cfSets = Object.keys(data.cashflow || {}).map(function(fid) {
+    return {
+      label: data.cashflow[fid].name,
+      data: (data.cashflow[fid].points || []).map(function(p) { return { x: p[0], y: p[1] }; }),
+      borderColor: FC[fid] || '#888', backgroundColor: 'transparent',
+      borderWidth: 2, pointRadius: 0, tension: 0.35
+    };
+  });
+  _cashflowChart = new Chart(document.getElementById('chart-cashflow'), {
+    type: 'line',
+    data: { datasets: cfSets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%'; } } }
+      },
+      scales: {
+        x: {
+          type: 'linear', min: 0, max: 120,
+          grid: { color: function(ctx) { return ctx.tick.value === 0 ? 'rgba(255,255,255,0.18)' : gridColor; } },
+          ticks: { color: tickColor, stepSize: 12 }
+        },
+        y: {
+          title: { display: true, text: '% of Fund Committed', color: tickColor, font: { size: 11 } },
+          grid: { color: function(ctx) { return ctx.tick.value === 0 ? 'rgba(255,255,255,0.22)' : gridColor; } },
+          ticks: { color: tickColor, callback: function(v) { return v + '%'; } }
+        }
+      }
+    }
+  });
+  var cfLegendHtml = '';
+  Object.keys(FC).forEach(function(fid) {
+    if (data.cashflow && data.cashflow[fid]) {
+      cfLegendHtml += '<span style="display:flex;align-items:center;gap:6px"><span style="width:20px;height:2px;background:' + FC[fid] + ';flex-shrink:0"></span>' + data.cashflow[fid].name + '</span>';
+    }
+  });
+  document.getElementById('cashflow-legend').innerHTML = cfLegendHtml;
 }
 
 function fundCard(f) {
@@ -1208,8 +1323,33 @@ async function streamAI(message, history, onChunk, onDone) {
 
 // ── Search ────────────────────────────────────────────────────────────────────
 function globalSearch(q) {
-  if (!q.trim()) return;
-  // Filter companies and searchers by name
+  if (!q || !q.trim()) return;
+  var lower = q.toLowerCase();
+  // Navigate to companies tab and filter
+  var matches = allCompanies.filter(function(c) {
+    return (c.name || '').toLowerCase().includes(lower) ||
+           (c.sector || '').toLowerCase().includes(lower) ||
+           (c.fund_name || '').toLowerCase().includes(lower);
+  });
+  showPage('companies');
+  var tbody = document.getElementById('companies-tbody');
+  if (matches.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">No results for "' + q + '"</td></tr>';
+    return;
+  }
+  tbody.innerHTML = matches.map(function(c) {
+    return '<tr class="clickable" onclick="showCompanyDetail(' + c.id + ')">' +
+      '<td><strong>' + (c.name || '') + '</strong></td>' +
+      '<td><span style="font-size:12px;color:var(--text3)">' + (c.fund_name || '') + '</span></td>' +
+      '<td><span class="tag">' + (c.sector || '') + '</span></td>' +
+      '<td>' + statusBadge(c.status) + '</td>' +
+      '<td class="num">' + fmt$(c.invested) + '</td>' +
+      '<td class="num">' + fmt$(c.realized) + '</td>' +
+      '<td class="num" style="color:var(--green)">' + fmt$(c.unrealized) + '</td>' +
+      '<td class="num" style="color:var(--green)">' + fmtX(c.moic) + '</td>' +
+      '<td class="num">' + (c.irr != null ? (c.irr*100).toFixed(1)+'%' : '—') + '</td>' +
+      '</tr>';
+  }).join('');
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -1340,6 +1480,7 @@ function runUniverseQuery() {
   btn.disabled = true;
   btn.textContent = '...';
   ansEl.innerHTML = '<span class="spinner"></span>';
+  ansEl.style.display = 'block';
   sqlEl.style.display = 'none';
 
   fetch('/api/universe/query', {
@@ -1353,6 +1494,7 @@ function runUniverseQuery() {
     var full = '';
     var gotMeta = false;
     ansEl.innerHTML = '';
+    ansEl.style.display = 'block';
 
     function read() {
       return reader.read().then(function(result) {
@@ -1377,8 +1519,7 @@ function runUniverseQuery() {
             var d = JSON.parse(payload);
             if (!gotMeta && d.sql) {
               gotMeta = true;
-              sqlEl.textContent = 'SQL: ' + d.sql + '  (' + d.row_count + ' rows)';
-              sqlEl.style.display = 'block';
+              // SQL hidden from user
             } else if (d.text) {
               full += d.text;
               ansEl.innerHTML = renderMd(full);
