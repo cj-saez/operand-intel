@@ -502,29 +502,43 @@ let currentSearcherFilter = 'all';
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
+  var sub = document.getElementById('portfolio-sub');
+  sub.textContent = 'JS running — fetching data...';
   try {
-    await Promise.all([loadFunds(), loadCompanies(), loadSearchers()]);
+    sub.textContent = 'Fetching funds...';
+    await loadFunds();
+    sub.textContent = 'Fetching companies...';
+    await loadCompanies();
+    sub.textContent = 'Fetching searchers...';
+    await loadSearchers();
+    sub.textContent = 'Rendering...';
     renderPortfolio();
     renderFundsPage();
     renderCompaniesPage();
     renderSearchesPage();
   } catch(e) {
-    document.getElementById('portfolio-sub').textContent = 'Error: ' + e.message;
-    console.error(e);
+    sub.textContent = 'Error loading data: ' + e.message + ' (check browser console)';
+    console.error('init() error:', e);
   }
 }
 
-async function loadFunds() {
-  const r = await fetch('/api/funds');
-  allFunds = await r.json();
+function loadFunds() {
+  return fetch('/api/funds').then(function(r) {
+    if (!r.ok) throw new Error('funds API returned ' + r.status);
+    return r.json();
+  }).then(function(data) { allFunds = data; });
 }
-async function loadCompanies() {
-  const r = await fetch('/api/companies');
-  allCompanies = await r.json();
+function loadCompanies() {
+  return fetch('/api/companies').then(function(r) {
+    if (!r.ok) throw new Error('companies API returned ' + r.status);
+    return r.json();
+  }).then(function(data) { allCompanies = data; });
 }
-async function loadSearchers() {
-  const r = await fetch('/api/searchers');
-  allSearchers = await r.json();
+function loadSearchers() {
+  return fetch('/api/searchers').then(function(r) {
+    if (!r.ok) throw new Error('searchers API returned ' + r.status);
+    return r.json();
+  }).then(function(data) { allSearchers = data; });
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────

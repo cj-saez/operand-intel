@@ -23,6 +23,15 @@ def init_db():
         conn.executescript(f.read())
     seed_data(conn)
     conn.commit()
+    # Auto-generate universe data if empty
+    if conn.execute('SELECT COUNT(*) FROM deal_companies').fetchone()[0] == 0:
+        print('Generating company universe...')
+        try:
+            import generate_universe
+            generate_universe.generate(3000)
+            print('Universe generated.')
+        except Exception as e:
+            print(f'Universe generation skipped: {e}')
     conn.close()
 
 def seed_data(conn):
