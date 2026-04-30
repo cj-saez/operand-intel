@@ -920,13 +920,13 @@ Return a JSON object with exactly two keys: "answer_sql" and "list_sql".
 4. ORDER BY group_key, owner_name
 5. ONLY include rows matching the filter — never return rows that don't satisfy the criteria
 6. For top-N queries use: WHERE field IN (SELECT field FROM deal_companies GROUP BY field ORDER BY COUNT(*) DESC LIMIT N)
-7. LIMIT 150. Never use DROP/DELETE/UPDATE/INSERT/ALTER. Return ONLY valid JSON.
+7. LIMIT 1000. Never use DROP/DELETE/UPDATE/INSERT/ALTER. Return ONLY valid JSON.
 
 Example — "% who worked at McKinsey Bain BCG":
-{{"answer_sql":"SELECT COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct FROM deal_companies WHERE LOWER(owner_prev_companies) LIKE '%mckinsey%' OR LOWER(owner_prev_companies) LIKE '%bain%' OR LOWER(owner_prev_companies) LIKE '%bcg%'","list_sql":"SELECT id,name,owner_name,CASE WHEN LOWER(owner_prev_companies) LIKE '%mckinsey%' THEN 'McKinsey' WHEN LOWER(owner_prev_companies) LIKE '%bain%' THEN 'Bain' WHEN LOWER(owner_prev_companies) LIKE '%bcg%' THEN 'BCG' ELSE 'Other' END as group_key,owner_prev_companies,sector,state,status FROM deal_companies WHERE LOWER(owner_prev_companies) LIKE '%mckinsey%' OR LOWER(owner_prev_companies) LIKE '%bain%' OR LOWER(owner_prev_companies) LIKE '%bcg%' ORDER BY group_key,owner_name LIMIT 150"}}
+{{"answer_sql":"SELECT COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct FROM deal_companies WHERE LOWER(owner_prev_companies) LIKE '%mckinsey%' OR LOWER(owner_prev_companies) LIKE '%bain%' OR LOWER(owner_prev_companies) LIKE '%bcg%'","list_sql":"SELECT id,name,owner_name,CASE WHEN LOWER(owner_prev_companies) LIKE '%mckinsey%' THEN 'McKinsey' WHEN LOWER(owner_prev_companies) LIKE '%bain%' THEN 'Bain' WHEN LOWER(owner_prev_companies) LIKE '%bcg%' THEN 'BCG' ELSE 'Other' END as group_key,owner_prev_companies,sector,state,status FROM deal_companies WHERE LOWER(owner_prev_companies) LIKE '%mckinsey%' OR LOWER(owner_prev_companies) LIKE '%bain%' OR LOWER(owner_prev_companies) LIKE '%bcg%' ORDER BY group_key,owner_name LIMIT 1000"}}
 
 Example — "Top 5 grad schools":
-{{"answer_sql":"SELECT owner_grad_school,COUNT(*) as n FROM deal_companies WHERE owner_grad_school IS NOT NULL GROUP BY owner_grad_school ORDER BY n DESC LIMIT 5","list_sql":"SELECT id,name,owner_name,owner_grad_school as group_key,owner_grad_school,sector,state,status FROM deal_companies WHERE owner_grad_school IN (SELECT owner_grad_school FROM deal_companies WHERE owner_grad_school IS NOT NULL GROUP BY owner_grad_school ORDER BY COUNT(*) DESC LIMIT 5) ORDER BY group_key,owner_name LIMIT 150"}}
+{{"answer_sql":"SELECT owner_grad_school,COUNT(*) as n FROM deal_companies WHERE owner_grad_school IS NOT NULL GROUP BY owner_grad_school ORDER BY n DESC LIMIT 5","list_sql":"SELECT id,name,owner_name,owner_grad_school as group_key,owner_grad_school,sector,state,status FROM deal_companies WHERE owner_grad_school IN (SELECT owner_grad_school FROM deal_companies WHERE owner_grad_school IS NOT NULL GROUP BY owner_grad_school ORDER BY COUNT(*) DESC LIMIT 5) ORDER BY group_key,owner_name LIMIT 1000"}}
 
 User question: {question}
 
