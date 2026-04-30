@@ -572,6 +572,7 @@ function fmt$(n, decimals = 1) {
 function fmtX(n) { return n == null ? '—' : n.toFixed(2) + 'x'; }
 function fmtPct(n) { return n == null ? '—' : (n * 100).toFixed(1) + '%'; }
 function fmtNum(n) { return n == null ? '—' : n.toLocaleString(); }
+function safeAttr(v) { return v == null ? '' : String(v).split('"').join('&quot;'); }
 
 function scoreBadge(color, score) {
   const cls = color === 'GREEN' ? 'green' : color === 'RED' ? 'red' : 'amber';
@@ -780,7 +781,7 @@ async function showCompanyDetail(id) {
       <table><thead><tr><th>Date</th><th class="num">Amount</th><th>Description</th></tr></thead>
       <tbody>${cfs.map(cf => `<tr>
         <td>${cf.date}</td>
-        <td class="num" style="color:${cf.amount<0?'var(--red)':'var(--green)';font-weight:500}">${cf.amount < 0 ? '('+fmt$(Math.abs(cf.amount))+')' : fmt$(cf.amount)}</td>
+        <td class="num" style="color:${cf.amount<0?'var(--red)':'var(--green)'};font-weight:500">${cf.amount < 0 ? '('+fmt$(Math.abs(cf.amount))+')' : fmt$(cf.amount)}</td>
         <td style="color:var(--text3)">${cf.description || '—'}</td>
       </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:24px">No cash flows recorded</td></tr>'}
       </tbody></table>
@@ -1057,7 +1058,7 @@ function renderPPMPreview(data) {
           ${fields.map(([label, key]) => `
             <div>
               <label style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:4px">${label}</label>
-              <input class="ppm-field" data-key="${key}" value="${data[key] != null ? String(data[key]).replace(/"/g,'&quot;') : ''}"
+              <input class="ppm-field" data-key="${key}" value="${safeAttr(data[key])}"
                 style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
             </div>`).join('')}
         </div>
