@@ -972,7 +972,7 @@ async function showSearcherProfile(id) {
     <div class="ai-panel" style="margin-bottom:20px">
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:13px;font-weight:600;color:var(--text)">AI Analysis</span>
-        <button class="btn btn-primary btn-sm" onclick="analyzeSearcher(${s.id},'${(s.searcher_name||'').replace(/'/g,'')}')" id="analyze-btn-${s.id}">Ask AI about this searcher</button>
+        <button class="btn btn-primary btn-sm" onclick="analyzeSearcher(${s.id})" id="analyze-btn-${s.id}">Ask AI about this searcher</button>
       </div>
       <div class="ai-messages" id="searcher-ai-messages-${s.id}" style="min-height:80px;max-height:200px">
         <div class="ai-msg ai" style="font-size:12px;color:var(--text3)">Click "Ask AI" to get an analysis of this searcher profile.</div>
@@ -983,7 +983,9 @@ async function showSearcherProfile(id) {
   showPage('searcher');
 }
 
-async function analyzeSearcher(id, name) {
+async function analyzeSearcher(id) {
+  const s = allSearchers.find(x => x.id === id) || {};
+  const name = s.searcher_name || s.searcher_identifier || 'this searcher';
   const btn = document.getElementById('analyze-btn-' + id);
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
