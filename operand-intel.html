@@ -438,9 +438,14 @@ td strong{color:var(--text);font-weight:600}
           </div>
         </div>
         <div id="universe-ai-results" style="display:none;margin-top:12px">
-          <button id="universe-results-toggle" onclick="toggleUniverseResults()" class="btn btn-ghost btn-sm" style="margin-bottom:10px">
-            Show <span id="universe-results-count">0</span> matching results ▼
-          </button>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <button id="universe-results-toggle" onclick="toggleUniverseResults()" class="btn btn-ghost btn-sm">
+              Show <span id="universe-results-count">0</span> matching results &#9660;
+            </button>
+            <button id="universe-results-download" onclick="downloadQueryResults()" class="btn btn-ghost btn-sm" style="display:none">
+              ↓ Download CSV
+            </button>
+          </div>
           <div id="universe-results-list" style="display:none"></div>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1852,6 +1857,7 @@ function runUniverseQuery() {
   resEl.style.display = 'none';
   resListEl.style.display = 'none';
   followupEl.style.display = 'none';
+  document.getElementById('universe-results-download').style.display = 'none';
 
   fetch('/api/universe/query', {
     method: 'POST',
@@ -1892,65 +1898,66 @@ function runUniverseQuery() {
             if (!gotMeta && d.sql !== undefined) {
               gotMeta = true;
               if (d.rows && d.rows.length > 0) {
+                window._queryRows = d.rows;
+                window._queryCols = d.cols || [];
+                document.getElementById('universe-results-download').style.display = 'inline-flex';
                 var hasPeople = d.rows.some(function(r) { return r.owner_name; });
                 var label = hasPeople ? 'people' : 'companies';
                 resEl.style.display = 'block';
                 resListEl.style.display = 'none';
                 document.getElementById('universe-results-toggle').innerHTML = 'Show ' + d.rows.length + ' matching ' + label + ' &#9660;';
 
-                // Detect if rows are grouped by a categorical field
-                var groupField = null;
-                if (d.rows.length > 2) {
-                  var fields = ['owner_grad_school', 'owner_undergrad_school', 'sector'];
-                  for (var fi = 0; fi < fields.length; fi++) {
-                    var f = fields[fi];
-                    var firstVal = d.rows[0][f];
-                    if (firstVal && d.rows.filter(function(r){ return r[f] === firstVal; }).length > 1) {
-                      groupField = f; break;
-                    }
-                  }
-                }
+                // Columns from SQL minus system/grouping fields — these become the table columns
+                var skipCols = {id:1, group_key:1};
+                var extraCols = (d.cols || []).filter(function(c) { return !skipCols[c]; });
 
-                // Build table
-                var showSchoolCol = !groupField && hasPeople;
+                // Friendly labels for known columns
+                var colLabels = {
+                  name: 'Company', owner_name: 'Person', sector: 'Sector', state: 'State',
+                  status: 'Status', owner_grad_school: 'Grad School',
+                  owner_undergrad_school: 'Undergrad', owner_prev_companies: 'Previous Companies',
+                  owner_gender: 'Gender', owner_ethnicity: 'Ethnicity',
+                  owner_age: 'Age', owner_years_experience: 'Yrs Exp'
+                };
+
+                var statColors2 = {'ACTIVE DILIGENCE':'amber','LOI SIGNED':'amber','ACQUIRED':'green','PASSED':'gray','DEAD':'red','PROSPECT':'blue'};
+
                 var thead = '<thead><tr>';
-                thead += '<th>' + (hasPeople ? 'Person' : 'Company') + '</th>';
-                if (hasPeople) thead += '<th>Company</th>';
-                if (showSchoolCol) thead += '<th>School</th>';
-                if (groupField !== 'sector') thead += '<th>Sector</th>';
-                thead += '<th>State</th>';
-                if (hasPeople) thead += '<th></th>';
+                for (var ci = 0; ci < extraCols.length; ci++) {
+                  thead += '<th>' + (colLabels[extraCols[ci]] || extraCols[ci]) + '</th>';
+                }
                 thead += '</tr></thead>';
 
                 var tbody = '<tbody>';
                 var lastGroup = null;
-                var statColors2 = {'ACTIVE DILIGENCE':'amber','LOI SIGNED':'amber','ACQUIRED':'green','PASSED':'gray','DEAD':'red','PROSPECT':'blue'};
                 for (var j = 0; j < d.rows.length; j++) {
                   var row = d.rows[j];
-                  if (groupField) {
-                    var grpVal = row[groupField] || '—';
-                    if (grpVal !== lastGroup) {
-                      lastGroup = grpVal;
-                      var grpCount = d.rows.filter(function(r){ return r[groupField] === grpVal; }).length;
-                      tbody += '<tr><td colspan="10" style="background:var(--surface2);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);padding:8px 16px;border-bottom:1px solid var(--border)">';
-                      tbody += grpVal + '<span style="font-weight:400;color:var(--text3);margin-left:8px">' + grpCount + ' ' + label + '</span></td></tr>';
-                    }
+                  // Group header when group_key changes
+                  var grpVal = (row.group_key != null ? String(row.group_key) : null);
+                  if (grpVal && grpVal !== lastGroup) {
+                    lastGroup = grpVal;
+                    var grpCount = d.rows.filter(function(r){ return String(r.group_key) === grpVal; }).length;
+                    tbody += '<tr><td colspan="' + extraCols.length + '" style="background:var(--surface2);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);padding:8px 16px;border-bottom:1px solid var(--border)">' +
+                      grpVal + '<span style="font-weight:400;color:var(--text3);margin-left:8px;text-transform:none;letter-spacing:0">' + grpCount + ' ' + label + '</span></td></tr>';
                   }
-                  var sc2 = statColors2[row.status] || 'gray';
-                  var statusBadge = row.status ? '<span class="badge ' + sc2 + '">' + row.status + '</span>' : '';
                   tbody += '<tr class="clickable" onclick="showUniverseDetail(' + row.id + ')">';
-                  tbody += '<td><strong>' + (row.owner_name || row.name) + '</strong></td>';
-                  if (hasPeople) tbody += '<td>' + (row.owner_name ? (row.name || '—') : '') + '</td>';
-                  if (showSchoolCol) tbody += '<td>' + (row.owner_grad_school || row.owner_undergrad_school || '—') + '</td>';
-                  if (groupField !== 'sector') tbody += '<td>' + (row.sector || '—') + '</td>';
-                  tbody += '<td>' + (row.state || '—') + '</td>';
-                  if (hasPeople) tbody += '<td>' + statusBadge + '</td>';
+                  for (var ci2 = 0; ci2 < extraCols.length; ci2++) {
+                    var col = extraCols[ci2];
+                    var val = row[col];
+                    if (col === 'status' && val) {
+                      val = '<span class="badge ' + (statColors2[val] || 'gray') + '">' + val + '</span>';
+                    } else if (col === 'owner_name' || col === 'name') {
+                      val = val ? '<strong>' + val + '</strong>' : '—';
+                    } else {
+                      val = val || '—';
+                    }
+                    tbody += '<td>' + val + '</td>';
+                  }
                   tbody += '</tr>';
                 }
                 tbody += '</tbody>';
 
-                resListEl.innerHTML = '<div class="table-wrap">' +
-                  '<table>' + thead + tbody + '</table></div>';
+                resListEl.innerHTML = '<div class="table-wrap"><table>' + thead + tbody + '</table></div>';
               }
             } else if (d.text) {
               full += d.text;
@@ -1977,6 +1984,26 @@ function toggleUniverseResults() {
   var open = list.style.display === 'block';
   list.style.display = open ? 'none' : 'block';
   toggle.innerHTML = toggle.innerHTML.replace(open ? '&#9650;' : '&#9660;', open ? '&#9660;' : '&#9650;');
+}
+
+function downloadQueryResults() {
+  var rows = window._queryRows || [];
+  var cols = (window._queryCols || []).filter(function(c){ return c !== 'id' && c !== 'group_key'; });
+  if (!rows.length || !cols.length) return;
+  var lines = [cols.join(',')];
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    var vals = cols.map(function(c) {
+      var v = row[c] != null ? String(row[c]) : '';
+      return v.indexOf(',') >= 0 || v.indexOf('"') >= 0 || v.indexOf('\n') >= 0 ? '"' + v.split('"').join('""') + '"' : v;
+    });
+    lines.push(vals.join(','));
+  }
+  var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'query_results.csv';
+  a.click();
 }
 
 function runUniverseFollowup() {

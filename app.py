@@ -896,28 +896,37 @@ def universe_query():
     if not question:
         return jsonify({'error': 'No question'}), 400
 
-    # Step 1: Generate both an answer query and a people-list query
-    sql_prompt = f"""You are a SQL expert. Convert the user's question into SQLite queries against deal_companies.
+    # Step 1: Generate both an answer query and an adaptive people-list query
+    sql_prompt = f"""You are a SQL expert. Convert the user's question into two SQLite queries against deal_companies.
 
 {UNIVERSE_SCHEMA}
 
-Return a JSON object with exactly two keys:
-- "answer_sql": the query that directly answers the question (aggregation, ranking, count, percentage, or list)
-- "list_sql": returns individual matching rows with these columns: SELECT id, name, owner_name, owner_grad_school, owner_undergrad_school, sector, state, status FROM deal_companies ... LIMIT 150
+Return a JSON object with exactly two keys: "answer_sql" and "list_sql".
 
-CRITICAL RULES for list_sql:
-1. For "top N <group>" queries (e.g. "top 5 schools"), list_sql MUST use a subquery to restrict to ONLY rows in those top N groups, then ORDER BY that group field so people are clustered together. Example for "top 3 grad schools": list_sql = "SELECT id,name,owner_name,owner_grad_school,owner_undergrad_school,sector,state,status FROM deal_companies WHERE owner_grad_school IN (SELECT owner_grad_school FROM deal_companies WHERE owner_grad_school IS NOT NULL GROUP BY owner_grad_school ORDER BY COUNT(*) DESC LIMIT 3) ORDER BY owner_grad_school, owner_name LIMIT 150"
-2. For filter queries (e.g. "female CEOs in healthcare"), list_sql uses the same WHERE clause as answer_sql.
-3. For percentage queries, list_sql filters to the matching rows (the numerator set), not everyone.
-4. NEVER return people who do not match the criteria.
-5. Return ONLY valid JSON, no markdown fences.
-6. Never use DROP, DELETE, UPDATE, INSERT, ALTER.
+"answer_sql": directly answers the question (aggregation/count/percentage/ranking/list as needed).
 
-Example for "What % went to Booth?":
-{{"answer_sql":"SELECT COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct FROM deal_companies WHERE LOWER(owner_grad_school) LIKE '%booth%'","list_sql":"SELECT id,name,owner_name,owner_grad_school,owner_undergrad_school,sector,state,status FROM deal_companies WHERE LOWER(owner_grad_school) LIKE '%booth%' ORDER BY owner_grad_school,owner_name LIMIT 150"}}
+"list_sql": returns the matching people as a spreadsheet. Rules:
+1. Always include: id, name, owner_name, sector, state, status
+2. Include a computed column "group_key" that best categorizes each matching row for THIS question:
+   - Previous employer questions (McKinsey/Bain/BCG/etc) → CASE WHEN LOWER(owner_prev_companies) LIKE '%mckinsey%' THEN 'McKinsey' ... END as group_key
+   - Grad school questions → owner_grad_school as group_key
+   - Undergrad school questions → owner_undergrad_school as group_key
+   - Gender questions → owner_gender as group_key
+   - Ethnicity questions → owner_ethnicity as group_key
+   - Sector/industry questions → sector as group_key
+   - State/location questions → state as group_key
+   - No natural grouping → NULL as group_key
+3. Include only the 1-2 extra columns most relevant to this question. For employer questions include owner_prev_companies. For school questions include owner_grad_school. Do NOT include irrelevant columns.
+4. ORDER BY group_key, owner_name
+5. ONLY include rows matching the filter — never return rows that don't satisfy the criteria
+6. For top-N queries use: WHERE field IN (SELECT field FROM deal_companies GROUP BY field ORDER BY COUNT(*) DESC LIMIT N)
+7. LIMIT 150. Never use DROP/DELETE/UPDATE/INSERT/ALTER. Return ONLY valid JSON.
 
-Example for "Top 5 undergrad schools":
-{{"answer_sql":"SELECT owner_undergrad_school, COUNT(*) as n FROM deal_companies WHERE owner_undergrad_school IS NOT NULL GROUP BY owner_undergrad_school ORDER BY n DESC LIMIT 5","list_sql":"SELECT id,name,owner_name,owner_grad_school,owner_undergrad_school,sector,state,status FROM deal_companies WHERE owner_undergrad_school IN (SELECT owner_undergrad_school FROM deal_companies WHERE owner_undergrad_school IS NOT NULL GROUP BY owner_undergrad_school ORDER BY COUNT(*) DESC LIMIT 5) ORDER BY owner_undergrad_school,owner_name LIMIT 150"}}
+Example — "% who worked at McKinsey Bain BCG":
+{{"answer_sql":"SELECT COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct FROM deal_companies WHERE LOWER(owner_prev_companies) LIKE '%mckinsey%' OR LOWER(owner_prev_companies) LIKE '%bain%' OR LOWER(owner_prev_companies) LIKE '%bcg%'","list_sql":"SELECT id,name,owner_name,CASE WHEN LOWER(owner_prev_companies) LIKE '%mckinsey%' THEN 'McKinsey' WHEN LOWER(owner_prev_companies) LIKE '%bain%' THEN 'Bain' WHEN LOWER(owner_prev_companies) LIKE '%bcg%' THEN 'BCG' ELSE 'Other' END as group_key,owner_prev_companies,sector,state,status FROM deal_companies WHERE LOWER(owner_prev_companies) LIKE '%mckinsey%' OR LOWER(owner_prev_companies) LIKE '%bain%' OR LOWER(owner_prev_companies) LIKE '%bcg%' ORDER BY group_key,owner_name LIMIT 150"}}
+
+Example — "Top 5 grad schools":
+{{"answer_sql":"SELECT owner_grad_school,COUNT(*) as n FROM deal_companies WHERE owner_grad_school IS NOT NULL GROUP BY owner_grad_school ORDER BY n DESC LIMIT 5","list_sql":"SELECT id,name,owner_name,owner_grad_school as group_key,owner_grad_school,sector,state,status FROM deal_companies WHERE owner_grad_school IN (SELECT owner_grad_school FROM deal_companies WHERE owner_grad_school IS NOT NULL GROUP BY owner_grad_school ORDER BY COUNT(*) DESC LIMIT 5) ORDER BY group_key,owner_name LIMIT 150"}}
 
 User question: {question}
 
@@ -950,23 +959,14 @@ JSON:"""
         results = [dict(zip(cols, r)) for r in rows]
 
         row_previews = []
+        list_cols = []
         if list_sql:
             try:
                 lcursor = conn.execute(list_sql)
-                lcols = [d[0] for d in lcursor.description]
+                list_cols = [d[0] for d in lcursor.description]
                 lrows = lcursor.fetchall()
                 for r in lrows:
-                    rd = dict(zip(lcols, r))
-                    row_previews.append({
-                        'id': rd.get('id'),
-                        'name': rd.get('name', ''),
-                        'owner_name': rd.get('owner_name', ''),
-                        'owner_grad_school': rd.get('owner_grad_school', ''),
-                        'owner_undergrad_school': rd.get('owner_undergrad_school', ''),
-                        'sector': rd.get('sector', ''),
-                        'state': rd.get('state', ''),
-                        'status': rd.get('status', '')
-                    })
+                    row_previews.append(dict(zip(list_cols, r)))
             except Exception:
                 pass
         conn.close()
@@ -982,7 +982,7 @@ Query results ({len(results)} rows):
 Provide a concise, insightful answer using the data. Use specific numbers and percentages. Format with markdown."""
 
     def stream_answer():
-        yield f"data: {json.dumps({'sql': sql, 'row_count': len(results), 'rows': row_previews})}\n\n"
+        yield f"data: {json.dumps({'sql': sql, 'row_count': len(results), 'rows': row_previews, 'cols': list_cols})}\n\n"
         try:
             with client.messages.stream(
                 model='claude-sonnet-4-6',
