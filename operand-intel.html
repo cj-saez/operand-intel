@@ -437,11 +437,11 @@ td strong{color:var(--text);font-weight:600}
             <button class="btn btn-ghost" onclick="runUniverseFollowup()" id="universe-followup-btn">Follow-up</button>
           </div>
         </div>
-        <div id="universe-ai-results" style="display:none;margin-top:10px">
-          <button id="universe-results-toggle" onclick="toggleUniverseResults()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 14px;color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
-            View <span id="universe-results-count">0</span> matching companies ▼
+        <div id="universe-ai-results" style="display:none;margin-top:12px">
+          <button id="universe-results-toggle" onclick="toggleUniverseResults()" class="btn btn-ghost btn-sm" style="margin-bottom:10px">
+            Show <span id="universe-results-count">0</span> matching results ▼
           </button>
-          <div id="universe-results-list" style="display:none;margin-top:10px;display:none;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"></div>
+          <div id="universe-results-list" style="display:none"></div>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost" style="font-size:11px" onclick="setUnivQ(this)">% Booth MBAs</button>
@@ -1893,46 +1893,64 @@ function runUniverseQuery() {
               gotMeta = true;
               if (d.rows && d.rows.length > 0) {
                 var hasPeople = d.rows.some(function(r) { return r.owner_name; });
-                var label = hasPeople ? 'matching people' : 'matching companies';
+                var label = hasPeople ? 'people' : 'companies';
                 resEl.style.display = 'block';
                 resListEl.style.display = 'none';
-                document.getElementById('universe-results-toggle').innerHTML = 'View ' + d.rows.length + ' ' + label + ' ▼';
+                document.getElementById('universe-results-toggle').innerHTML = 'Show ' + d.rows.length + ' matching ' + label + ' &#9660;';
 
-                // Detect grouping field: if rows are sorted by a school/sector field, insert group headers
+                // Detect if rows are grouped by a categorical field
                 var groupField = null;
-                if (d.rows.length > 1) {
-                  var gs = d.rows[0].owner_grad_school, us = d.rows[0].owner_undergrad_school, sec = d.rows[0].sector;
-                  if (gs && d.rows[1].owner_grad_school === gs || (d.rows.filter(function(r){return r.owner_grad_school===d.rows[0].owner_grad_school;}).length > 1)) groupField = 'owner_grad_school';
-                  else if (us && d.rows.filter(function(r){return r.owner_undergrad_school===us;}).length > 1) groupField = 'owner_undergrad_school';
-                  else if (sec && d.rows.filter(function(r){return r.sector===sec;}).length > 1) groupField = 'sector';
-                }
-
-                var rowHtml = '';
-                var lastGroup = null;
-                for (var j = 0; j < d.rows.length; j++) {
-                  var row = d.rows[j];
-                  // Group header
-                  if (groupField) {
-                    var grpVal = row[groupField] || 'Other';
-                    if (grpVal !== lastGroup) {
-                      lastGroup = grpVal;
-                      rowHtml += '<div style="padding:6px 16px;background:var(--surface2);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">' + grpVal + '</div>';
+                if (d.rows.length > 2) {
+                  var fields = ['owner_grad_school', 'owner_undergrad_school', 'sector'];
+                  for (var fi = 0; fi < fields.length; fi++) {
+                    var f = fields[fi];
+                    var firstVal = d.rows[0][f];
+                    if (firstVal && d.rows.filter(function(r){ return r[f] === firstVal; }).length > 1) {
+                      groupField = f; break;
                     }
                   }
-                  var badge = row.status && row.status !== 'PROSPECT' ? ('<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text3);margin-left:6px">' + row.status + '</span>') : '';
-                  var primaryLabel = row.owner_name || row.name;
-                  var secondaryParts = [];
-                  if (row.owner_name && row.name) secondaryParts.push(row.name);
-                  if (!groupField && row.owner_grad_school) secondaryParts.push(row.owner_grad_school);
-                  if (row.sector && groupField !== 'sector') secondaryParts.push(row.sector);
-                  if (row.state) secondaryParts.push(row.state);
-                  var secondaryLabel = secondaryParts.join(' · ');
-                  rowHtml += '<div onclick="showUniverseDetail(' + row.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'var(--surface)\'" onmouseout="this.style.background=\'\'">';
-                  rowHtml += '<div><span style="font-size:13px;font-weight:500;color:var(--text)">' + primaryLabel + '</span>' + badge + '</div>';
-                  rowHtml += '<div style="font-size:12px;color:var(--text3);text-align:right;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + secondaryLabel + '</div>';
-                  rowHtml += '</div>';
                 }
-                resListEl.innerHTML = rowHtml;
+
+                // Build table
+                var showSchoolCol = !groupField && hasPeople;
+                var thead = '<thead><tr>';
+                thead += '<th>' + (hasPeople ? 'Person' : 'Company') + '</th>';
+                if (hasPeople) thead += '<th>Company</th>';
+                if (showSchoolCol) thead += '<th>School</th>';
+                if (groupField !== 'sector') thead += '<th>Sector</th>';
+                thead += '<th>State</th>';
+                if (hasPeople) thead += '<th></th>';
+                thead += '</tr></thead>';
+
+                var tbody = '<tbody>';
+                var lastGroup = null;
+                var statColors2 = {'ACTIVE DILIGENCE':'amber','LOI SIGNED':'amber','ACQUIRED':'green','PASSED':'gray','DEAD':'red','PROSPECT':'blue'};
+                for (var j = 0; j < d.rows.length; j++) {
+                  var row = d.rows[j];
+                  if (groupField) {
+                    var grpVal = row[groupField] || '—';
+                    if (grpVal !== lastGroup) {
+                      lastGroup = grpVal;
+                      var grpCount = d.rows.filter(function(r){ return r[groupField] === grpVal; }).length;
+                      tbody += '<tr><td colspan="10" style="background:var(--surface2);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);padding:8px 16px;border-bottom:1px solid var(--border)">';
+                      tbody += grpVal + '<span style="font-weight:400;color:var(--text3);margin-left:8px">' + grpCount + ' ' + label + '</span></td></tr>';
+                    }
+                  }
+                  var sc2 = statColors2[row.status] || 'gray';
+                  var statusBadge = row.status ? '<span class="badge ' + sc2 + '">' + row.status + '</span>' : '';
+                  tbody += '<tr class="clickable" onclick="showUniverseDetail(' + row.id + ')">';
+                  tbody += '<td><strong>' + (row.owner_name || row.name) + '</strong></td>';
+                  if (hasPeople) tbody += '<td>' + (row.owner_name ? (row.name || '—') : '') + '</td>';
+                  if (showSchoolCol) tbody += '<td>' + (row.owner_grad_school || row.owner_undergrad_school || '—') + '</td>';
+                  if (groupField !== 'sector') tbody += '<td>' + (row.sector || '—') + '</td>';
+                  tbody += '<td>' + (row.state || '—') + '</td>';
+                  if (hasPeople) tbody += '<td>' + statusBadge + '</td>';
+                  tbody += '</tr>';
+                }
+                tbody += '</tbody>';
+
+                resListEl.innerHTML = '<div class="table-wrap">' +
+                  '<table>' + thead + tbody + '</table></div>';
               }
             } else if (d.text) {
               full += d.text;
@@ -1956,13 +1974,9 @@ function runUniverseQuery() {
 function toggleUniverseResults() {
   var list = document.getElementById('universe-results-list');
   var toggle = document.getElementById('universe-results-toggle');
-  if (list.style.display === 'none' || list.style.display === '') {
-    list.style.display = 'block';
-    toggle.innerHTML = toggle.innerHTML.replace('▼', '▲');
-  } else {
-    list.style.display = 'none';
-    toggle.innerHTML = toggle.innerHTML.replace('▲', '▼');
-  }
+  var open = list.style.display === 'block';
+  list.style.display = open ? 'none' : 'block';
+  toggle.innerHTML = toggle.innerHTML.replace(open ? '&#9650;' : '&#9660;', open ? '&#9660;' : '&#9650;');
 }
 
 function runUniverseFollowup() {
