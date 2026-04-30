@@ -69,6 +69,20 @@ tr.clickable{cursor:pointer;transition:background var(--tr)}
 tr.clickable:hover td{background:var(--surface2);color:var(--text)}
 td.num{text-align:right;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 td strong{color:var(--text);font-weight:600}
+/* ── Spreadsheet (query results) ── */
+.sheet-wrap{border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;font-size:13px}
+.sheet-wrap table{width:100%;border-collapse:collapse}
+.sheet-wrap th{background:var(--surface2);text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:9px 14px;border-bottom:2px solid var(--border2);border-right:1px solid var(--border);white-space:nowrap}
+.sheet-wrap th:last-child{border-right:none}
+.sheet-wrap td{padding:9px 14px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:13px;color:var(--text2);vertical-align:middle}
+.sheet-wrap td:last-child{border-right:none}
+.sheet-wrap tr:last-child td{border-bottom:none}
+.sheet-wrap tr.sheet-row{cursor:pointer;transition:background var(--tr)}
+.sheet-wrap tr.sheet-row:hover td{background:var(--surface2);color:var(--text)}
+.sheet-wrap tr.sheet-row:nth-child(even) td{background:rgba(255,255,255,.015)}
+.sheet-wrap tr.sheet-row:nth-child(even):hover td{background:var(--surface2)}
+.sheet-group-hdr td{background:#1a2236 !important;border-bottom:1px solid var(--blue) !important;border-top:2px solid var(--blue) !important;padding:10px 14px !important;cursor:default !important}
+.sheet-group-hdr:first-child td{border-top:none !important}
 /* ── Badges ── */
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
 .badge-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
@@ -1932,24 +1946,25 @@ function runUniverseQuery() {
                 var lastGroup = null;
                 for (var j = 0; j < d.rows.length; j++) {
                   var row = d.rows[j];
-                  // Group header when group_key changes
-                  var grpVal = (row.group_key != null ? String(row.group_key) : null);
+                  var grpVal = (row.group_key != null && row.group_key !== '' ? String(row.group_key) : null);
                   if (grpVal && grpVal !== lastGroup) {
                     lastGroup = grpVal;
                     var grpCount = d.rows.filter(function(r){ return String(r.group_key) === grpVal; }).length;
-                    tbody += '<tr><td colspan="' + extraCols.length + '" style="background:var(--surface2);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);padding:8px 16px;border-bottom:1px solid var(--border)">' +
-                      grpVal + '<span style="font-weight:400;color:var(--text3);margin-left:8px;text-transform:none;letter-spacing:0">' + grpCount + ' ' + label + '</span></td></tr>';
+                    tbody += '<tr class="sheet-group-hdr"><td colspan="' + extraCols.length + '">' +
+                      '<span style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--blue)">' + grpVal + '</span>' +
+                      '<span style="font-size:12px;font-weight:400;color:var(--text3);margin-left:10px">' + grpCount + ' ' + label + '</span>' +
+                      '</td></tr>';
                   }
-                  tbody += '<tr class="clickable" onclick="showUniverseDetail(' + row.id + ')">';
+                  tbody += '<tr class="sheet-row" onclick="showUniverseDetail(' + row.id + ')">';
                   for (var ci2 = 0; ci2 < extraCols.length; ci2++) {
                     var col = extraCols[ci2];
                     var val = row[col];
                     if (col === 'status' && val) {
                       val = '<span class="badge ' + (statColors2[val] || 'gray') + '">' + val + '</span>';
                     } else if (col === 'owner_name' || col === 'name') {
-                      val = val ? '<strong>' + val + '</strong>' : '—';
+                      val = val ? '<strong style="color:var(--text)">' + val + '</strong>' : '<span style="color:var(--text3)">—</span>';
                     } else {
-                      val = val || '—';
+                      val = val || '<span style="color:var(--text3)">—</span>';
                     }
                     tbody += '<td>' + val + '</td>';
                   }
@@ -1957,7 +1972,7 @@ function runUniverseQuery() {
                 }
                 tbody += '</tbody>';
 
-                resListEl.innerHTML = '<div class="table-wrap"><table>' + thead + tbody + '</table></div>';
+                resListEl.innerHTML = '<div class="sheet-wrap"><table>' + thead + tbody + '</table></div>';
               }
             } else if (d.text) {
               full += d.text;
