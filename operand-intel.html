@@ -1897,15 +1897,39 @@ function runUniverseQuery() {
                 resEl.style.display = 'block';
                 resListEl.style.display = 'none';
                 document.getElementById('universe-results-toggle').innerHTML = 'View ' + d.rows.length + ' ' + label + ' ▼';
+
+                // Detect grouping field: if rows are sorted by a school/sector field, insert group headers
+                var groupField = null;
+                if (d.rows.length > 1) {
+                  var gs = d.rows[0].owner_grad_school, us = d.rows[0].owner_undergrad_school, sec = d.rows[0].sector;
+                  if (gs && d.rows[1].owner_grad_school === gs || (d.rows.filter(function(r){return r.owner_grad_school===d.rows[0].owner_grad_school;}).length > 1)) groupField = 'owner_grad_school';
+                  else if (us && d.rows.filter(function(r){return r.owner_undergrad_school===us;}).length > 1) groupField = 'owner_undergrad_school';
+                  else if (sec && d.rows.filter(function(r){return r.sector===sec;}).length > 1) groupField = 'sector';
+                }
+
                 var rowHtml = '';
+                var lastGroup = null;
                 for (var j = 0; j < d.rows.length; j++) {
                   var row = d.rows[j];
+                  // Group header
+                  if (groupField) {
+                    var grpVal = row[groupField] || 'Other';
+                    if (grpVal !== lastGroup) {
+                      lastGroup = grpVal;
+                      rowHtml += '<div style="padding:6px 16px;background:var(--surface2);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)">' + grpVal + '</div>';
+                    }
+                  }
                   var badge = row.status && row.status !== 'PROSPECT' ? ('<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text3);margin-left:6px">' + row.status + '</span>') : '';
-                  var primaryLabel = row.owner_name ? row.owner_name : row.name;
-                  var secondaryLabel = row.owner_name ? (row.name + (row.owner_grad_school ? ' · ' + row.owner_grad_school : '')) : ((row.sector || '') + (row.state ? ' · ' + row.state : ''));
-                  rowHtml += '<div onclick="showUniverseDetail(' + row.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'">';
+                  var primaryLabel = row.owner_name || row.name;
+                  var secondaryParts = [];
+                  if (row.owner_name && row.name) secondaryParts.push(row.name);
+                  if (!groupField && row.owner_grad_school) secondaryParts.push(row.owner_grad_school);
+                  if (row.sector && groupField !== 'sector') secondaryParts.push(row.sector);
+                  if (row.state) secondaryParts.push(row.state);
+                  var secondaryLabel = secondaryParts.join(' · ');
+                  rowHtml += '<div onclick="showUniverseDetail(' + row.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'var(--surface)\'" onmouseout="this.style.background=\'\'">';
                   rowHtml += '<div><span style="font-size:13px;font-weight:500;color:var(--text)">' + primaryLabel + '</span>' + badge + '</div>';
-                  rowHtml += '<div style="font-size:12px;color:var(--text3);text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + secondaryLabel + '</div>';
+                  rowHtml += '<div style="font-size:12px;color:var(--text3);text-align:right;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + secondaryLabel + '</div>';
                   rowHtml += '</div>';
                 }
                 resListEl.innerHTML = rowHtml;

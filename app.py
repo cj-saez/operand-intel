@@ -902,17 +902,22 @@ def universe_query():
 {UNIVERSE_SCHEMA}
 
 Return a JSON object with exactly two keys:
-- "answer_sql": the query that directly answers the question (may be aggregation/count/percentage)
-- "list_sql": always returns individual matching rows: SELECT id, name, owner_name, owner_grad_school, owner_undergrad_school, sector, state, status FROM deal_companies WHERE <same filter conditions> LIMIT 150
+- "answer_sql": the query that directly answers the question (aggregation, ranking, count, percentage, or list)
+- "list_sql": returns individual matching rows with these columns: SELECT id, name, owner_name, owner_grad_school, owner_undergrad_school, sector, state, status FROM deal_companies ... LIMIT 150
 
-Rules:
-- Return ONLY valid JSON, no markdown fences
-- Use LIKE for partial matches with LOWER()
-- For percentage questions, answer_sql uses COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct
-- Never use DROP, DELETE, UPDATE, INSERT, ALTER
+CRITICAL RULES for list_sql:
+1. For "top N <group>" queries (e.g. "top 5 schools"), list_sql MUST use a subquery to restrict to ONLY rows in those top N groups, then ORDER BY that group field so people are clustered together. Example for "top 3 grad schools": list_sql = "SELECT id,name,owner_name,owner_grad_school,owner_undergrad_school,sector,state,status FROM deal_companies WHERE owner_grad_school IN (SELECT owner_grad_school FROM deal_companies WHERE owner_grad_school IS NOT NULL GROUP BY owner_grad_school ORDER BY COUNT(*) DESC LIMIT 3) ORDER BY owner_grad_school, owner_name LIMIT 150"
+2. For filter queries (e.g. "female CEOs in healthcare"), list_sql uses the same WHERE clause as answer_sql.
+3. For percentage queries, list_sql filters to the matching rows (the numerator set), not everyone.
+4. NEVER return people who do not match the criteria.
+5. Return ONLY valid JSON, no markdown fences.
+6. Never use DROP, DELETE, UPDATE, INSERT, ALTER.
 
 Example for "What % went to Booth?":
-{{"answer_sql":"SELECT COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct FROM deal_companies WHERE LOWER(owner_grad_school) LIKE '%booth%'","list_sql":"SELECT id,name,owner_name,owner_grad_school,owner_undergrad_school,sector,state,status FROM deal_companies WHERE LOWER(owner_grad_school) LIKE '%booth%' LIMIT 150"}}
+{{"answer_sql":"SELECT COUNT(*)*100.0/(SELECT COUNT(*) FROM deal_companies) AS pct FROM deal_companies WHERE LOWER(owner_grad_school) LIKE '%booth%'","list_sql":"SELECT id,name,owner_name,owner_grad_school,owner_undergrad_school,sector,state,status FROM deal_companies WHERE LOWER(owner_grad_school) LIKE '%booth%' ORDER BY owner_grad_school,owner_name LIMIT 150"}}
+
+Example for "Top 5 undergrad schools":
+{{"answer_sql":"SELECT owner_undergrad_school, COUNT(*) as n FROM deal_companies WHERE owner_undergrad_school IS NOT NULL GROUP BY owner_undergrad_school ORDER BY n DESC LIMIT 5","list_sql":"SELECT id,name,owner_name,owner_grad_school,owner_undergrad_school,sector,state,status FROM deal_companies WHERE owner_undergrad_school IN (SELECT owner_undergrad_school FROM deal_companies WHERE owner_undergrad_school IS NOT NULL GROUP BY owner_undergrad_school ORDER BY COUNT(*) DESC LIMIT 5) ORDER BY owner_undergrad_school,owner_name LIMIT 150"}}
 
 User question: {question}
 
