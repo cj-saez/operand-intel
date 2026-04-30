@@ -1154,6 +1154,160 @@ def universe_stats():
     return jsonify({'total': total, 'by_sector': by_sector, 'by_status': by_status, 'by_grad': by_grad})
 
 
+# ── Company Materials Vault ───────────────────────────────────────────────────
+
+@app.route('/api/companies/<int:company_id>/materials')
+def get_company_materials(company_id):
+    conn = get_db()
+    rows = [dict(r) for r in conn.execute(
+        'SELECT * FROM company_materials WHERE company_id=? ORDER BY created_at DESC',
+        (company_id,)).fetchall()]
+    conn.close()
+    return jsonify(rows)
+
+@app.route('/api/companies/<int:company_id>/materials', methods=['POST'])
+def add_company_material(company_id):
+    data = request.get_json(silent=True) or {}
+    content = (data.get('content') or '').strip()
+    if not content:
+        return jsonify({'error': 'content required'}), 400
+    conn = get_db()
+    cur = conn.execute(
+        'INSERT INTO company_materials (company_id, title, content, source) VALUES (?,?,?,?)',
+        (company_id, data.get('title', ''), content, data.get('source', 'manual')))
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return jsonify({'id': new_id}), 201
+
+@app.route('/api/companies/<int:company_id>/materials/<int:mid>', methods=['DELETE'])
+def delete_company_material(company_id, mid):
+    conn = get_db()
+    conn.execute('DELETE FROM company_materials WHERE id=? AND company_id=?', (mid, company_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+@app.route('/api/companies/<int:company_id>/summary', methods=['POST'])
+def company_summary(company_id):
+    """Stream an investment lifecycle narrative for a portfolio company."""
+    conn = get_db()
+    company = conn.execute('''
+        SELECT c.*, f.name as fund_name FROM companies c
+        LEFT JOIN funds f ON c.fund_id=f.id WHERE c.id=?''', (company_id,)).fetchone()
+    if not company:
+        conn.close()
+        return jsonify({'error': 'Not found'}), 404
+    co = dict(company)
+    materials = [dict(r) for r in conn.execute(
+        'SELECT * FROM company_materials WHERE company_id=? ORDER BY created_at',
+        (company_id,)).fetchall()]
+    conn.close()
+
+    materials_text = ''
+    if materials:
+        parts = []
+        for m in materials:
+            parts.append(f"[{m.get('source','').upper()} — {m.get('title') or 'Untitled'} ({m.get('created_at','')[:10]})]:\n{m.get('content','')}")
+        materials_text = '\n\n'.join(parts)
+    else:
+        materials_text = 'No materials provided.'
+
+    prompt = f"""You are a managing partner at Operand Group, a search fund investment firm. Write a 500-600 word investment lifecycle narrative for the following portfolio company.
+
+COMPANY: {co.get('name')} ({co.get('sector', '')} · {co.get('fund_name', '')})
+STATUS: {co.get('status')}
+INVESTED: ${(co.get('invested') or 0):,.0f}
+MOIC: {co.get('moic') or '—'}x
+REALIZED: ${(co.get('realized') or 0):,.0f} | UNREALIZED: ${(co.get('unrealized') or 0):,.0f}
+EV/EBITDA (original): {co.get('ev_ebitda_original') or '—'}x | TEV (original): {('${:,.0f}'.format(co['tev_original'])) if co.get('tev_original') else '—'}
+EV/EBITDA (current): {co.get('ev_ebitda_current') or '—'}x
+
+MATERIALS & CONTEXT:
+{materials_text}
+
+Write a professional investment lifecycle narrative covering:
+1. **Acquisition Thesis** — why this company was acquired, what the investment thesis was
+2. **Operational Journey** — what happened operationally post-acquisition, key operational changes, team, systems
+3. **Key Milestones** — significant achievements, pivots, challenges overcome
+4. **Current Status** — where the company stands today, current performance metrics
+5. **Forward Outlook** — realistic assessment of path to exit, value creation opportunities
+
+Tone: LP-ready, candid, specific. Use actual numbers where available. Do not pad."""
+
+    def stream():
+        try:
+            with client.messages.stream(model='claude-sonnet-4-6', max_tokens=1500,
+                    messages=[{'role': 'user', 'content': prompt}]) as s:
+                for text in s.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+# ── Pattern Intelligence ───────────────────────────────────────────────────────
+
+@app.route('/api/intelligence/patterns', methods=['POST'])
+def intelligence_patterns():
+    """Stream a structured AI pattern intelligence report across all companies and searchers."""
+    conn = get_db()
+    companies = [dict(r) for r in conn.execute('''
+        SELECT c.id, c.name, c.sector, c.status, c.invested, c.realized, c.unrealized,
+               c.total_return, c.moic, c.irr, c.ev_ebitda_original, c.tev_original,
+               c.formed_date, f.name as fund_name, f.vintage
+        FROM companies c LEFT JOIN funds f ON c.fund_id=f.id
+        ORDER BY c.moic DESC NULLS LAST''').fetchall()]
+    searchers = [dict(r) for r in conn.execute('''
+        SELECT id, searcher_name, llc_name, search_type, ethnicity, gender, estimated_age,
+               education, professional_background, post_mba_years, search_capital_target,
+               location_general, location_specific, target_industries, headline_score,
+               score_color, status, company_acquired, operand_participation,
+               took_eta_class, completed_eta_internship
+        FROM searchers ORDER BY headline_score DESC NULLS LAST''').fetchall()]
+    conn.close()
+
+    prompt = f"""You are a managing partner at Operand Group analyzing the full history of your search fund investments and searcher pipeline to extract actionable pattern intelligence.
+
+PORTFOLIO COMPANIES ({len(companies)} total):
+{json.dumps(companies, indent=2)}
+
+SEARCHER PIPELINE ({len(searchers)} total):
+{json.dumps(searchers, indent=2)}
+
+Analyze this data and produce a structured intelligence report. Use ## headers for each section. Be specific — cite actual company names, numbers, and trends. Do not hedge excessively.
+
+## Deal Patterns
+What sectors, entry sizes, and multiples correlate with best MOIC? What are the common traits of top performers (e.g., sector, invested amount, fund vintage)? What patterns emerge from underperformers or write-downs? Are there any entry multiple sweet spots?
+
+## Searcher Success Patterns
+What education backgrounds, professional histories, fund structures, and capital targets correlate with successful acquisitions (status = ACQUIRED)? What differentiates searchers who closed vs. those still searching or who failed? Any demographic or geographic patterns?
+
+## Portfolio Construction Insights
+Any sector concentration risks? Vintage timing patterns (which fund vintages performed best)? Capital deployment patterns — are smaller or larger checks producing better outcomes? Any geographic concentration worth noting?
+
+## Forward Recommendations
+Based on these patterns, what should Operand prioritize in the next 12-24 months? Which active searchers look most likely to close based on the historical patterns? What deal characteristics should the team hunt for?
+
+Write ~600-800 words total. Be direct and specific."""
+
+    def stream():
+        try:
+            with client.messages.stream(model='claude-sonnet-4-6', max_tokens=2500,
+                    messages=[{'role': 'user', 'content': prompt}]) as s:
+                for text in s.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 5001))

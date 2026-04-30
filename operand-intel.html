@@ -243,6 +243,10 @@ td strong{color:var(--text);font-weight:600}
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
         Pipeline
       </div>
+      <div class="nav-item" onclick="showPage('intelligence')" id="nav-intelligence">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+        Intelligence
+      </div>
       <div class="nav-section">Tools</div>
       <div class="nav-item" onclick="showPage('ppm')" id="nav-ppm">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -427,6 +431,34 @@ td strong{color:var(--text);font-weight:600}
       <div id="pipeline-board" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:16px;align-items:flex-start"></div>
     </div>
 
+    <!-- ── INTELLIGENCE ── -->
+    <div class="page" id="page-intelligence">
+      <div class="page-hdr">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <h1>Pattern Intelligence</h1>
+            <p>AI analysis of what's working across deals and searchers</p>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+            <button class="btn btn-primary" onclick="runPatternIntelligence()" id="intelligence-run-btn">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+              Run Analysis
+            </button>
+            <span id="intelligence-last-run" style="font-size:11px;color:var(--text3)"></span>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;min-height:300px">
+        <div id="intelligence-output" style="font-size:14px;color:var(--text2);line-height:1.85;min-height:200px">
+          <div class="empty-state">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px;color:var(--text3)"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+            <p>Click "Run Analysis" to generate a cross-portfolio pattern intelligence report.</p>
+            <p style="margin-top:4px;font-size:12px">Analysis takes ~20-30 seconds and covers deal patterns, searcher success factors, and portfolio construction insights.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Universe page -->
     <div class="page" id="page-universe">
       <div class="page-hdr" style="margin-bottom:0">
@@ -582,6 +614,62 @@ td strong{color:var(--text);font-weight:600}
   </div>
 </div>
 
+<!-- Add Material Modal -->
+<div class="modal-overlay" id="material-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title">Add Material</div>
+      <button class="modal-close" onclick="closeModal('material-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;gap:14px">
+        <div>
+          <label style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Title (optional)</label>
+          <input id="material-title" type="text" placeholder="e.g. Q3 Board Update, Acquisition Memo..."
+            style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Source</label>
+          <select id="material-source"
+            style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+            <option value="Email">Email</option>
+            <option value="Board Update">Board Update</option>
+            <option value="Memo">Memo</option>
+            <option value="Call Notes">Call Notes</option>
+            <option value="Financial">Financial</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px">Content <span style="color:var(--red)">*</span></label>
+          <textarea id="material-content" placeholder="Paste email, board update, memo, call notes, or any relevant text..."
+            style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;resize:vertical;min-height:180px"></textarea>
+        </div>
+      </div>
+      <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
+        <button class="btn btn-ghost" onclick="closeModal('material-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveMaterial()">Save Material</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Investment Summary Modal -->
+<div class="modal-overlay" id="summary-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:760px;width:90vw;display:flex;flex-direction:column">
+    <div class="modal-header" style="flex-shrink:0">
+      <div>
+        <div class="modal-title" id="summary-modal-title">Investment Summary</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">AI-generated lifecycle narrative</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('summary-modal')">✕</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;flex:1">
+      <div id="summary-content" style="font-size:13.5px;color:var(--text2);line-height:1.85;min-height:200px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Comparison Modal -->
 <div class="modal-overlay" id="compare-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal" style="max-width:740px">
@@ -704,7 +792,7 @@ const PAGE_TITLES = {
   portfolio: 'Portfolio Overview', funds: 'Funds', 'fund-detail': 'Fund Detail',
   companies: 'Companies', 'company-detail': 'Company', searches: 'Searches',
   searcher: 'Searcher Profile', universe: 'Operand Domain', pipeline: 'Deal Pipeline',
-  ppm: 'PPM Ingestion', ai: 'AI Analyst'
+  ppm: 'PPM Ingestion', ai: 'AI Analyst', intelligence: 'Pattern Intelligence'
 };
 
 function showPage(name) {
@@ -1029,7 +1117,7 @@ async function showCompanyDetail(id) {
         ${co.equity_value ? `<tr><td class="detail-key">Equity Value</td><td>—</td><td style="color:var(--green);font-weight:600">${fmt$(co.equity_value)}</td><td></td></tr>` : ''}
       </tbody></table>
     </div>` : ''}
-    <div class="table-wrap">
+    <div class="table-wrap" style="margin-bottom:24px">
       <div class="table-header"><div class="table-title">Cash Flows</div><div class="table-sub">${cfs.length} entries · Net: <span style="color:${netCF<0?'var(--red)':'var(--green)'}">${fmt$(netCF)}</span></div></div>
       <table><thead><tr><th>Date</th><th class="num">Amount</th><th>Description</th></tr></thead>
       <tbody>${cfs.map(cf => `<tr>
@@ -1038,9 +1126,27 @@ async function showCompanyDetail(id) {
         <td style="color:var(--text3)">${cf.description || '—'}</td>
       </tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:24px">No cash flows recorded</td></tr>'}
       </tbody></table>
+    </div>
+    <!-- Materials & Investment Summary -->
+    <div class="table-wrap" id="materials-section-${co.id}">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Materials &amp; Investment Summary</div>
+          <div class="table-sub" id="materials-count-${co.id}">Loading…</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="openAddMaterialModal(${co.id})">+ Add Material</button>
+          <button class="btn btn-primary btn-sm" onclick="openInvestmentSummary(${co.id}, '${safeAttr(co.name)}')">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Generate Summary
+          </button>
+        </div>
+      </div>
+      <div id="materials-list-${co.id}" style="padding:4px 0"></div>
     </div>`;
 
   showPage('company-detail');
+  loadCompanyMaterials(co.id);
 }
 
 // ── Searches Page ─────────────────────────────────────────────────────────────
@@ -2241,6 +2347,179 @@ function openResearchModal(id, ownerName) {
     return read();
   }).catch(function(e) {
     content.innerHTML = '<span style="color:var(--red)">Error: ' + e.message + '</span>';
+  });
+}
+
+// ── Company Materials Vault ───────────────────────────────────────────────────
+var _currentMaterialCompanyId = null;
+
+function loadCompanyMaterials(companyId) {
+  fetch('/api/companies/' + companyId + '/materials').then(function(r) { return r.json(); }).then(function(items) {
+    var countEl = document.getElementById('materials-count-' + companyId);
+    var listEl = document.getElementById('materials-list-' + companyId);
+    if (!countEl || !listEl) return;
+    countEl.textContent = items.length + ' material' + (items.length === 1 ? '' : 's');
+    if (!items.length) {
+      listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">No materials yet. Add emails, board updates, memos, or call notes to power AI summaries.</div>';
+      return;
+    }
+    var html = '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
+      '<th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 16px;border-bottom:1px solid var(--border)">Title</th>' +
+      '<th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 16px;border-bottom:1px solid var(--border)">Source</th>' +
+      '<th style="text-align:left;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 16px;border-bottom:1px solid var(--border)">Date</th>' +
+      '<th style="padding:10px 16px;border-bottom:1px solid var(--border)"></th>' +
+      '</tr></thead><tbody>';
+    for (var i = 0; i < items.length; i++) {
+      var m = items[i];
+      var dateStr = m.created_at ? m.created_at.slice(0, 10) : '';
+      var title = m.title || '(Untitled)';
+      var preview = m.content ? m.content.slice(0, 80).replace(/</g,'&lt;').replace(/>/g,'&gt;') + (m.content.length > 80 ? '…' : '') : '';
+      var isLast = (i === items.length - 1);
+      html += '<tr>' +
+        '<td style="padding:12px 16px;' + (isLast ? '' : 'border-bottom:1px solid var(--border);') + '">' +
+        '<div style="font-weight:600;color:var(--text);font-size:13px">' + title + '</div>' +
+        (preview ? '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + preview + '</div>' : '') +
+        '</td>' +
+        '<td style="padding:12px 16px;' + (isLast ? '' : 'border-bottom:1px solid var(--border);') + '"><span class="tag">' + (m.source || 'manual') + '</span></td>' +
+        '<td style="padding:12px 16px;font-size:12px;color:var(--text3);' + (isLast ? '' : 'border-bottom:1px solid var(--border);') + '">' + dateStr + '</td>' +
+        '<td style="padding:12px 16px;text-align:right;' + (isLast ? '' : 'border-bottom:1px solid var(--border);') + '">' +
+        '<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteMaterial(' + companyId + ',' + m.id + ')">Delete</button>' +
+        '</td></tr>';
+    }
+    html += '</tbody></table>';
+    listEl.innerHTML = html;
+  }).catch(function(e) {
+    var listEl = document.getElementById('materials-list-' + companyId);
+    if (listEl) listEl.innerHTML = '<div style="padding:16px;color:var(--red);font-size:13px">Error loading materials: ' + e.message + '</div>';
+  });
+}
+
+function openAddMaterialModal(companyId) {
+  _currentMaterialCompanyId = companyId;
+  document.getElementById('material-title').value = '';
+  document.getElementById('material-content').value = '';
+  document.getElementById('material-source').value = 'Email';
+  openModal('material-modal');
+}
+
+function saveMaterial() {
+  var companyId = _currentMaterialCompanyId;
+  if (!companyId) return;
+  var title = document.getElementById('material-title').value.trim();
+  var content = document.getElementById('material-content').value.trim();
+  var source = document.getElementById('material-source').value;
+  if (!content) {
+    document.getElementById('material-content').style.borderColor = 'var(--red)';
+    return;
+  }
+  document.getElementById('material-content').style.borderColor = '';
+  fetch('/api/companies/' + companyId + '/materials', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title: title, content: content, source: source})
+  }).then(function(r) {
+    if (r.ok) {
+      closeModal('material-modal');
+      loadCompanyMaterials(companyId);
+    }
+  });
+}
+
+function deleteMaterial(companyId, materialId) {
+  if (!confirm('Delete this material?')) return;
+  fetch('/api/companies/' + companyId + '/materials/' + materialId, {method: 'DELETE'}).then(function() {
+    loadCompanyMaterials(companyId);
+  });
+}
+
+function openInvestmentSummary(companyId, companyName) {
+  document.getElementById('summary-modal-title').textContent = 'Investment Summary — ' + companyName;
+  var content = document.getElementById('summary-content');
+  content.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text3)"><span class="spinner"></span> Generating lifecycle narrative for ' + companyName + '…</div>';
+  openModal('summary-modal');
+
+  var fullText = '';
+  fetch('/api/companies/' + companyId + '/summary', {method: 'POST'}).then(function(r) {
+    var reader = r.body.getReader();
+    var dec = new TextDecoder();
+    var buf = '';
+    content.innerHTML = '';
+    function read() {
+      return reader.read().then(function(result) {
+        if (result.done) return;
+        buf += dec.decode(result.value, {stream: true});
+        var lines = buf.split('\n');
+        buf = lines.pop();
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          if (!line.startsWith('data: ')) continue;
+          var payload = line.slice(6);
+          if (payload === '[DONE]') return;
+          try {
+            var d = JSON.parse(payload);
+            if (d.text) { fullText += d.text; content.innerHTML = renderMd(fullText); }
+            else if (d.error) { content.innerHTML = '<span style="color:var(--red)">' + d.error + '</span>'; }
+          } catch(e2) {}
+        }
+        return read();
+      });
+    }
+    return read();
+  }).catch(function(e) {
+    content.innerHTML = '<span style="color:var(--red)">Error: ' + e.message + '</span>';
+  });
+}
+
+// ── Pattern Intelligence ───────────────────────────────────────────────────────
+function runPatternIntelligence() {
+  var btn = document.getElementById('intelligence-run-btn');
+  var output = document.getElementById('intelligence-output');
+  var lastRun = document.getElementById('intelligence-last-run');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+  output.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text3)"><span class="spinner"></span> Analyzing all portfolio companies and searchers — this takes ~20-30 seconds…</div>';
+
+  var fullText = '';
+  fetch('/api/intelligence/patterns', {method: 'POST'}).then(function(r) {
+    var reader = r.body.getReader();
+    var dec = new TextDecoder();
+    var buf = '';
+    output.innerHTML = '';
+    function read() {
+      return reader.read().then(function(result) {
+        if (result.done) {
+          btn.disabled = false;
+          btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg> Run Again';
+          return;
+        }
+        buf += dec.decode(result.value, {stream: true});
+        var lines = buf.split('\n');
+        buf = lines.pop();
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          if (!line.startsWith('data: ')) continue;
+          var payload = line.slice(6);
+          if (payload === '[DONE]') {
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg> Run Again';
+            var now = new Date();
+            lastRun.textContent = 'Last run: ' + now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+            return;
+          }
+          try {
+            var d = JSON.parse(payload);
+            if (d.text) { fullText += d.text; output.innerHTML = renderMd(fullText); }
+            else if (d.error) { output.innerHTML = '<span style="color:var(--red)">' + d.error + '</span>'; btn.disabled = false; btn.innerHTML = 'Run Analysis'; }
+          } catch(e2) {}
+        }
+        return read();
+      });
+    }
+    return read();
+  }).catch(function(e) {
+    output.innerHTML = '<span style="color:var(--red)">Error: ' + e.message + '</span>';
+    btn.disabled = false;
+    btn.innerHTML = 'Run Analysis';
   });
 }
 
