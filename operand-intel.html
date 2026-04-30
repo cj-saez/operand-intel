@@ -2003,17 +2003,36 @@ function toggleUniverseResults() {
 
 function downloadQueryResults() {
   var rows = window._queryRows || [];
-  var cols = (window._queryCols || []).filter(function(c){ return c !== 'id' && c !== 'group_key'; });
-  if (!rows.length || !cols.length) return;
-  var lines = [cols.join(',')];
-  for (var i = 0; i < rows.length; i++) {
-    var row = rows[i];
-    var vals = cols.map(function(c) {
-      var v = row[c] != null ? String(row[c]) : '';
-      return v.indexOf(',') >= 0 || v.indexOf('"') >= 0 || v.indexOf('\n') >= 0 ? '"' + v.split('"').join('""') + '"' : v;
-    });
-    lines.push(vals.join(','));
+  var allCols = window._queryCols || [];
+  if (!rows.length || !allCols.length) return;
+
+  // Build ordered column list: group_key first (as "Category"), then the rest, no id
+  var exportCols = [];
+  var hasGroup = allCols.indexOf('group_key') >= 0 && rows.some(function(r){ return r.group_key != null && r.group_key !== ''; });
+  if (hasGroup) exportCols.push('group_key');
+  for (var i = 0; i < allCols.length; i++) {
+    if (allCols[i] !== 'id' && allCols[i] !== 'group_key') exportCols.push(allCols[i]);
   }
+
+  var colLabelsCSV = {
+    group_key: 'Category', name: 'Company', owner_name: 'Person', sector: 'Sector',
+    state: 'State', status: 'Status', owner_grad_school: 'Grad School',
+    owner_undergrad_school: 'Undergrad School', owner_prev_companies: 'Previous Companies',
+    owner_gender: 'Gender', owner_ethnicity: 'Ethnicity',
+    owner_age: 'Age', owner_years_experience: 'Yrs Experience'
+  };
+
+  function csvCell(v) {
+    v = v != null ? String(v) : '';
+    return (v.indexOf(',') >= 0 || v.indexOf('"') >= 0 || v.indexOf('\n') >= 0) ? '"' + v.split('"').join('""') + '"' : v;
+  }
+
+  var header = exportCols.map(function(c){ return csvCell(colLabelsCSV[c] || c); }).join(',');
+  var lines = [header];
+  for (var j = 0; j < rows.length; j++) {
+    lines.push(exportCols.map(function(c){ return csvCell(rows[j][c]); }).join(','));
+  }
+
   var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
