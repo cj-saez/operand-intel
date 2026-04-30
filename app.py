@@ -1251,6 +1251,55 @@ Tone: LP-ready, candid, specific. Use actual numbers where available. Do not pad
 
 # ── Pattern Intelligence ───────────────────────────────────────────────────────
 
+@app.route('/api/intelligence/analyze', methods=['POST'])
+def intelligence_analyze():
+    """Stream an AI decision analysis for a selected set of portfolio companies."""
+    data = request.get_json(silent=True) or {}
+    company_ids = data.get('company_ids', [])
+    question = data.get('question', '').strip()
+    if not company_ids:
+        return jsonify({'error': 'No companies selected'}), 400
+    if not question:
+        return jsonify({'error': 'No question provided'}), 400
+
+    conn = get_db()
+    placeholders = ','.join('?' * len(company_ids))
+    companies = [dict(r) for r in conn.execute(f'''
+        SELECT c.*, f.name as fund_name, f.vintage
+        FROM companies c LEFT JOIN funds f ON c.fund_id=f.id
+        WHERE c.id IN ({placeholders})''', company_ids).fetchall()]
+    # Pull materials for each company
+    for co in companies:
+        mats = [dict(r) for r in conn.execute(
+            'SELECT title, source, content, created_at FROM company_materials WHERE company_id=? ORDER BY created_at DESC',
+            (co['id'],)).fetchall()]
+        co['materials'] = mats
+    conn.close()
+
+    prompt = f"""You are a managing partner at Operand Group. You have selected {len(companies)} portfolio companies for analysis.
+
+SELECTED COMPANIES:
+{json.dumps(companies, indent=2)}
+
+QUESTION / DECISION TO MAKE:
+{question}
+
+Provide a thorough, specific analysis that directly answers the question. Reference actual company names, numbers, and materials where relevant. Be direct — this is an internal decision-support tool for the GP."""
+
+    def stream():
+        try:
+            with client.messages.stream(model='claude-sonnet-4-6', max_tokens=2000,
+                    messages=[{'role': 'user', 'content': prompt}]) as s:
+                for text in s.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(stream_with_context(stream()), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
 @app.route('/api/intelligence/patterns', methods=['POST'])
 def intelligence_patterns():
     """Stream a structured AI pattern intelligence report across all companies and searchers."""

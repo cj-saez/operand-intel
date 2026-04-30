@@ -243,7 +243,7 @@ td strong{color:var(--text);font-weight:600}
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
         Pipeline
       </div>
-      <div class="nav-item" onclick="showPage('intelligence')" id="nav-intelligence">
+      <div class="nav-item" onclick="showPage('intelligence');loadIntelCompanies()" id="nav-intelligence">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
         Intelligence
       </div>
@@ -434,26 +434,79 @@ td strong{color:var(--text);font-weight:600}
     <!-- ── INTELLIGENCE ── -->
     <div class="page" id="page-intelligence">
       <div class="page-hdr">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <h1>Pattern Intelligence</h1>
-            <p>AI analysis of what's working across deals and searchers</p>
+        <h1>Intelligence</h1>
+        <p>AI-powered analysis across portfolio companies and searcher patterns</p>
+      </div>
+
+      <!-- Sub-tabs -->
+      <div class="tabs" style="margin-bottom:20px">
+        <div class="tab active" id="intel-tab-analysis" onclick="switchIntelTab('analysis')">Company Analysis</div>
+        <div class="tab" id="intel-tab-patterns" onclick="switchIntelTab('patterns')">Pattern Intelligence</div>
+      </div>
+
+      <!-- ── Company Analysis tab ── -->
+      <div id="intel-panel-analysis">
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start">
+
+          <!-- Left: company selector -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Select Companies</div>
+            <div style="display:flex;gap:6px;margin-bottom:10px">
+              <button class="btn btn-ghost btn-sm" onclick="selectAllIntelCompanies(true)">All</button>
+              <button class="btn btn-ghost btn-sm" onclick="selectAllIntelCompanies(false)">None</button>
+              <span id="intel-selected-count" style="font-size:12px;color:var(--text3);margin-left:auto;line-height:28px">0 selected</span>
+            </div>
+            <div id="intel-company-list" style="max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">
+              <div style="color:var(--text3);font-size:13px">Loading companies…</div>
+            </div>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+
+          <!-- Right: question + output -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Decision / Question</div>
+              <textarea id="intel-question" rows="3" placeholder="e.g. Which of these companies should we consider for a follow-on investment? Compare their performance and highlight key risks and opportunities."
+                style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;color:var(--text);font-family:inherit;font-size:13px;resize:vertical;outline:none;box-sizing:border-box"></textarea>
+              <div style="display:flex;justify-content:flex-end;margin-top:10px">
+                <button class="btn btn-primary" onclick="runCompanyAnalysis()" id="intel-analyze-btn">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                  Analyze Selected
+                </button>
+              </div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;min-height:240px">
+              <div id="intel-analysis-output" style="font-size:14px;color:var(--text2);line-height:1.85">
+                <div class="empty-state">
+                  <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px;color:var(--text3)"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                  <p>Select one or more companies, enter a question, and click Analyze.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Patterns tab ── -->
+      <div id="intel-panel-patterns" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <div style="font-size:14px;color:var(--text2)">Cross-portfolio pattern intelligence — deals, searchers, construction insights</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span id="intelligence-last-run" style="font-size:11px;color:var(--text3)"></span>
             <button class="btn btn-primary" onclick="runPatternIntelligence()" id="intelligence-run-btn">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
               Run Analysis
             </button>
-            <span id="intelligence-last-run" style="font-size:11px;color:var(--text3)"></span>
           </div>
         </div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;min-height:300px">
-        <div id="intelligence-output" style="font-size:14px;color:var(--text2);line-height:1.85;min-height:200px">
-          <div class="empty-state">
-            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px;color:var(--text3)"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
-            <p>Click "Run Analysis" to generate a cross-portfolio pattern intelligence report.</p>
-            <p style="margin-top:4px;font-size:12px">Analysis takes ~20-30 seconds and covers deal patterns, searcher success factors, and portfolio construction insights.</p>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;min-height:300px">
+          <div id="intelligence-output" style="font-size:14px;color:var(--text2);line-height:1.85;min-height:200px">
+            <div class="empty-state">
+              <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px;color:var(--text3)"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+              <p>Click "Run Analysis" to generate a cross-portfolio pattern intelligence report.</p>
+              <p style="margin-top:4px;font-size:12px">Analysis takes ~20-30 seconds and covers deal patterns, searcher success factors, and portfolio construction insights.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -778,7 +831,7 @@ function loadCompanies() {
   return fetch('/api/companies').then(function(r) {
     if (!r.ok) throw new Error('companies API returned ' + r.status);
     return r.json();
-  }).then(function(data) { allCompanies = data; });
+  }).then(function(data) { allCompanies = data; intelCompaniesLoaded = false; });
 }
 function loadSearchers() {
   return fetch('/api/searchers').then(function(r) {
@@ -792,7 +845,7 @@ const PAGE_TITLES = {
   portfolio: 'Portfolio Overview', funds: 'Funds', 'fund-detail': 'Fund Detail',
   companies: 'Companies', 'company-detail': 'Company', searches: 'Searches',
   searcher: 'Searcher Profile', universe: 'Operand Domain', pipeline: 'Deal Pipeline',
-  ppm: 'PPM Ingestion', ai: 'AI Analyst', intelligence: 'Pattern Intelligence'
+  ppm: 'PPM Ingestion', ai: 'AI Analyst', intelligence: 'Intelligence'
 };
 
 function showPage(name) {
@@ -2468,6 +2521,115 @@ function openInvestmentSummary(companyId, companyName) {
   }).catch(function(e) {
     content.innerHTML = '<span style="color:var(--red)">Error: ' + e.message + '</span>';
   });
+}
+
+// ── Intelligence page ─────────────────────────────────────────────────────────
+function switchIntelTab(tab) {
+  ['analysis','patterns'].forEach(function(t) {
+    document.getElementById('intel-tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('intel-panel-' + t).style.display = t === tab ? '' : 'none';
+  });
+}
+
+var intelCompaniesLoaded = false;
+function loadIntelCompanies() {
+  if (intelCompaniesLoaded && allCompanies.length) return;
+  var list = document.getElementById('intel-company-list');
+  if (!list) return;
+  if (!allCompanies.length) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px">No portfolio companies found.</div>';
+    return;
+  }
+  intelCompaniesLoaded = true;
+  // Group by fund
+  var byFund = {};
+  allCompanies.forEach(function(c) {
+    var key = c.fund_id || 'Unknown';
+    if (!byFund[key]) byFund[key] = [];
+    byFund[key].push(c);
+  });
+  var html = '';
+  Object.keys(byFund).forEach(function(fid) {
+    var fname = (allFunds.find(function(f){return f.id===fid;})||{}).name || fid;
+    html += '<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:10px 0 4px;padding-left:4px">' + fname + '</div>';
+    byFund[fid].forEach(function(c) {
+      html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:5px;cursor:pointer;font-size:13px;color:var(--text2)" onmouseenter="this.style.background=\'var(--surface2)\'" onmouseleave="this.style.background=\'\'">'
+        + '<input type="checkbox" class="intel-co-chk" value="' + c.id + '" onchange="updateIntelCount()" style="width:14px;height:14px;cursor:pointer">'
+        + '<span>' + (c.name || '—') + '</span>'
+        + '</label>';
+    });
+  });
+  list.innerHTML = html;
+  updateIntelCount();
+}
+
+function updateIntelCount() {
+  var chks = document.querySelectorAll('.intel-co-chk:checked');
+  var el = document.getElementById('intel-selected-count');
+  if (el) el.textContent = chks.length + ' selected';
+}
+
+function selectAllIntelCompanies(checked) {
+  document.querySelectorAll('.intel-co-chk').forEach(function(c) { c.checked = checked; });
+  updateIntelCount();
+}
+
+function runCompanyAnalysis() {
+  var chks = document.querySelectorAll('.intel-co-chk:checked');
+  if (!chks.length) { alert('Select at least one company.'); return; }
+  var question = document.getElementById('intel-question').value.trim();
+  if (!question) { alert('Enter a question or decision prompt.'); return; }
+  var ids = [];
+  chks.forEach(function(c) { ids.push(parseInt(c.value)); });
+
+  var btn = document.getElementById('intel-analyze-btn');
+  var output = document.getElementById('intel-analysis-output');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+  output.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text3)"><span class="spinner"></span> Analyzing ' + ids.length + ' compan' + (ids.length===1?'y':'ies') + '…</div>';
+
+  var fullText = '';
+  fetch('/api/intelligence/analyze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({company_ids: ids, question: question})
+  }).then(function(r) {
+    var reader = r.body.getReader();
+    var dec = new TextDecoder();
+    var buf = '';
+    output.innerHTML = '';
+    function read() {
+      return reader.read().then(function(result) {
+        if (result.done) { resetAnalyzeBtn(); return; }
+        buf += dec.decode(result.value, {stream: true});
+        var lines = buf.split('\n');
+        buf = lines.pop();
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          if (!line.startsWith('data: ')) continue;
+          var payload = line.slice(6);
+          if (payload === '[DONE]') { resetAnalyzeBtn(); return; }
+          try {
+            var d = JSON.parse(payload);
+            if (d.text) { fullText += d.text; output.innerHTML = renderMd(fullText); }
+            else if (d.error) { output.innerHTML = '<span style="color:var(--red)">' + d.error + '</span>'; resetAnalyzeBtn(); }
+          } catch(e2) {}
+        }
+        return read();
+      });
+    }
+    return read();
+  }).catch(function(e) {
+    output.innerHTML = '<span style="color:var(--red)">Error: ' + e.message + '</span>';
+    resetAnalyzeBtn();
+  });
+}
+
+function resetAnalyzeBtn() {
+  var btn = document.getElementById('intel-analyze-btn');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg> Analyze Selected';
 }
 
 // ── Pattern Intelligence ───────────────────────────────────────────────────────
