@@ -634,7 +634,10 @@ def portfolio_narrative():
     total_called = sum(f.get('called',0) or 0 for f in funds)
     gross_moic = round(total_value / total_called, 2) if total_called else 0
 
-    prompt = f"""You are a managing partner at Operand Group, a search fund investment firm. Write a professional quarterly portfolio brief (Q1 2026) in first-person plural ("we", "our").
+    today = datetime.date.today()
+    quarter = f"Q{(today.month - 1) // 3 + 1} {today.year}"
+
+    prompt = f"""You are a managing partner at Operand Group, a search fund investment firm. Write a professional quarterly portfolio brief ({quarter}) in first-person plural ("we", "our").
 
 PORTFOLIO DATA:
 Funds: {json.dumps(funds, indent=2)}
