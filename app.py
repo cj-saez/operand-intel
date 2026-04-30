@@ -955,7 +955,18 @@ Query results ({len(results)} rows):
 Provide a concise, insightful answer to the user's question using the data. Use specific numbers and percentages. Format nicely with markdown if helpful."""
 
     def stream_answer():
-        yield f"data: {json.dumps({'sql': sql, 'row_count': len(results)})}\n\n"
+        # Send row previews if results are company-level rows (have 'id')
+        row_previews = []
+        if results and 'id' in results[0]:
+            for r in results[:150]:
+                row_previews.append({
+                    'id': r['id'],
+                    'name': r.get('name', ''),
+                    'sector': r.get('sector', ''),
+                    'state': r.get('state', ''),
+                    'status': r.get('status', '')
+                })
+        yield f"data: {json.dumps({'sql': sql, 'row_count': len(results), 'rows': row_previews})}\n\n"
         try:
             with client.messages.stream(
                 model='claude-sonnet-4-6',

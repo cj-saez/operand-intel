@@ -429,6 +429,20 @@ td strong{color:var(--text);font-weight:600}
         </div>
         <div id="universe-ai-sql" style="display:none"></div>
         <div id="universe-ai-answer" style="font-size:14px;color:var(--text);line-height:1.75;background:var(--surface2);border-radius:var(--r);padding:16px;margin-top:8px;min-height:48px;display:none"></div>
+        <div id="universe-ai-followup" style="display:none;margin-top:10px;display:none">
+          <div style="display:flex;gap:8px">
+            <input id="universe-followup-q" type="text" placeholder="Ask a follow-up…"
+              style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 13px;color:var(--text);font-family:inherit;font-size:13px;outline:none"
+              onkeydown="if(event.key==='Enter')runUniverseFollowup()">
+            <button class="btn btn-ghost" onclick="runUniverseFollowup()" id="universe-followup-btn">Follow-up</button>
+          </div>
+        </div>
+        <div id="universe-ai-results" style="display:none;margin-top:10px">
+          <button id="universe-results-toggle" onclick="toggleUniverseResults()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 14px;color:var(--blue);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+            View <span id="universe-results-count">0</span> matching companies ▼
+          </button>
+          <div id="universe-results-list" style="display:none;margin-top:10px;display:none;border:1px solid var(--border);border-radius:var(--r);overflow:hidden"></div>
+        </div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost" style="font-size:11px" onclick="setUnivQ(this)">% Booth MBAs</button>
           <button class="btn btn-ghost" style="font-size:11px" onclick="setUnivQ(this)">Top 5 undergrad schools</button>
@@ -1806,14 +1820,22 @@ function setUnivQ(btn) {
 function runUniverseQuery() {
   var question = document.getElementById('universe-q').value.trim();
   if (!question) return;
+  window._lastUniverseQ = question;
   var btn = document.getElementById('universe-query-btn');
   var ansEl = document.getElementById('universe-ai-answer');
   var sqlEl = document.getElementById('universe-ai-sql');
+  var resEl = document.getElementById('universe-ai-results');
+  var resListEl = document.getElementById('universe-results-list');
+  var resCountEl = document.getElementById('universe-results-count');
+  var followupEl = document.getElementById('universe-ai-followup');
   btn.disabled = true;
   btn.textContent = '...';
   ansEl.innerHTML = '<span class="spinner"></span>';
   ansEl.style.display = 'block';
   sqlEl.style.display = 'none';
+  resEl.style.display = 'none';
+  resListEl.style.display = 'none';
+  followupEl.style.display = 'none';
 
   fetch('/api/universe/query', {
     method: 'POST',
@@ -1845,13 +1867,30 @@ function runUniverseQuery() {
           if (payload === '[DONE]') {
             btn.disabled = false;
             btn.textContent = 'Ask';
+            document.getElementById('universe-ai-followup').style.display = 'block';
+            document.getElementById('universe-followup-q').value = '';
             return;
           }
           try {
             var d = JSON.parse(payload);
-            if (!gotMeta && d.sql) {
+            if (!gotMeta && d.sql !== undefined) {
               gotMeta = true;
-              // SQL hidden from user
+              if (d.rows && d.rows.length > 0) {
+                resCountEl.textContent = d.rows.length;
+                resEl.style.display = 'block';
+                resListEl.style.display = 'none';
+                document.getElementById('universe-results-toggle').innerHTML = 'View ' + d.rows.length + ' matching companies ▼';
+                var rowHtml = '';
+                for (var j = 0; j < d.rows.length; j++) {
+                  var row = d.rows[j];
+                  var badge = row.status ? ('<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text3);margin-left:6px">' + row.status + '</span>') : '';
+                  rowHtml += '<div onclick="showUniverseDetail(' + row.id + ')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'">';
+                  rowHtml += '<div><span style="font-size:13px;font-weight:500;color:var(--text)">' + row.name + '</span>' + badge + '</div>';
+                  rowHtml += '<div style="font-size:12px;color:var(--text3)">' + (row.sector || '') + (row.state ? ' · ' + row.state : '') + '</div>';
+                  rowHtml += '</div>';
+                }
+                resListEl.innerHTML = rowHtml;
+              }
             } else if (d.text) {
               full += d.text;
               ansEl.innerHTML = renderMd(full);
@@ -1869,6 +1908,26 @@ function runUniverseQuery() {
     btn.disabled = false;
     btn.textContent = 'Ask';
   });
+}
+
+function toggleUniverseResults() {
+  var list = document.getElementById('universe-results-list');
+  var toggle = document.getElementById('universe-results-toggle');
+  if (list.style.display === 'none' || list.style.display === '') {
+    list.style.display = 'block';
+    toggle.innerHTML = toggle.innerHTML.replace('▼', '▲');
+  } else {
+    list.style.display = 'none';
+    toggle.innerHTML = toggle.innerHTML.replace('▲', '▼');
+  }
+}
+
+function runUniverseFollowup() {
+  var fq = document.getElementById('universe-followup-q').value.trim();
+  if (!fq) return;
+  var combined = (window._lastUniverseQ || '') + ' — follow-up: ' + fq;
+  document.getElementById('universe-q').value = combined;
+  runUniverseQuery();
 }
 
 function showUniverseDetail(id) {
