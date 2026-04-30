@@ -1197,23 +1197,43 @@ function handlePPMDrop(e) {
 
 async function handlePPMFile(file) {
   if (!file) return;
-  const status = document.getElementById('ppm-status');
-  const preview = document.getElementById('ppm-preview');
+  var status = document.getElementById('ppm-status');
+  var preview = document.getElementById('ppm-preview');
   status.style.display = 'block';
   preview.style.display = 'none';
-  status.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--text2)"><span class="spinner"></span> Reading <strong>${file.name}</strong> — Claude is extracting structured data…</div>`;
+  status.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text2)"><span class="spinner"></span> Reading <strong>' + file.name + '</strong> — Claude is extracting structured data…</div>';
 
-  const fd = new FormData();
+  var fd = new FormData();
   fd.append('file', file);
 
   try {
-    const r = await fetch('/api/ppm/extract', { method: 'POST', body: fd });
-    const result = await r.json();
-    if (!result.ok) { status.innerHTML = `<div style="color:var(--red)">Error: ${result.error}</div>`; return; }
-    status.innerHTML = `<div style="color:var(--green)">✓ Extraction complete — review and save below.</div>`;
-    renderPPMPreview(result.data);
+    var r = await fetch('/api/ppm/extract', { method: 'POST', body: fd });
+    if (!r.ok) { var err = await r.json(); status.innerHTML = '<div style="color:var(--red)">Error: ' + err.error + '</div>'; return; }
+    var reader = r.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = '';
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buf += decoder.decode(chunk.value, { stream: true });
+      var lines = buf.split('\n');
+      buf = lines.pop();
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (!line.startsWith('data: ')) continue;
+        var payload = JSON.parse(line.slice(6));
+        if (payload.ok) {
+          status.innerHTML = '<div style="color:var(--green)">✓ Extraction complete — review and save below.</div>';
+          renderPPMPreview(payload.data);
+          return;
+        } else if (payload.error) {
+          status.innerHTML = '<div style="color:var(--red)">Error: ' + payload.error + '</div>';
+          return;
+        }
+      }
+    }
   } catch (e) {
-    status.innerHTML = `<div style="color:var(--red)">Request failed: ${e.message}</div>`;
+    status.innerHTML = '<div style="color:var(--red)">Request failed: ' + e.message + '</div>';
   }
 }
 

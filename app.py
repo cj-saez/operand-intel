@@ -406,14 +406,14 @@ def update_searcher(searcher_id):
 
 @app.route('/api/ppm/extract', methods=['POST'])
 def extract_ppm():
-    """Extract structured data from a PPM PDF using Claude."""
+    """Extract structured data from a PPM PDF using Claude (SSE streaming to survive Railway proxy timeout)."""
     if 'file' not in request.files:
         return jsonify({'error': 'No file'}), 400
     f = request.files['file']
     try:
         import fitz  # PyMuPDF
         doc = fitz.open(stream=f.read(), filetype='pdf')
-        text = '\n'.join(page.get_text() for page in doc)
+        pdf_text = '\n'.join(page.get_text() for page in doc)
         doc.close()
     except Exception as e:
         return jsonify({'error': f'PDF read error: {e}'}), 400
@@ -422,7 +422,7 @@ def extract_ppm():
 Extract ALL of the following fields as a JSON object. Use null for any field not found.
 
 PPM TEXT:
-{text[:40000]}
+{pdf_text[:40000]}
 
 Return ONLY valid JSON with these exact keys:
 {{
@@ -467,27 +467,35 @@ Return ONLY valid JSON with these exact keys:
 Score calculation: sum the weights of all applied signals for headline_score.
 GREEN = score >= 4, YELLOW = score 1-3, RED = score <= 0."""
 
-    try:
-        response = client.messages.create(
-            model='claude-sonnet-4-6',
-            max_tokens=4000,
-            messages=[{'role': 'user', 'content': prompt}]
-        )
-        raw = response.content[0].text.strip()
-        # Strip markdown code fences if present
-        raw = re.sub(r'^```(?:json)?\s*', '', raw)
-        raw = re.sub(r'\s*```$', '', raw)
-        extracted = json.loads(raw)
-        # Serialize list fields to JSON strings for storage
-        for field in ['risk_positive', 'risk_mixed', 'risk_negative', 'score_signals']:
-            if isinstance(extracted.get(field), list):
-                extracted[field] = json.dumps(extracted[field])
-        extracted['ppm_raw'] = text[:10000]
-        return jsonify({'ok': True, 'data': extracted})
-    except json.JSONDecodeError as e:
-        return jsonify({'error': f'JSON parse error: {e}', 'raw': raw}), 500
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    ppm_raw = pdf_text[:10000]
+
+    def generate():
+        try:
+            chunks = []
+            with client.messages.stream(
+                model='claude-sonnet-4-6',
+                max_tokens=4000,
+                messages=[{'role': 'user', 'content': prompt}]
+            ) as stream:
+                for chunk in stream.text_stream:
+                    chunks.append(chunk)
+                    yield 'data: {"status":"processing"}\n\n'
+            raw = ''.join(chunks).strip()
+            raw = re.sub(r'^```(?:json)?\s*', '', raw)
+            raw = re.sub(r'\s*```$', '', raw)
+            extracted = json.loads(raw)
+            for field in ['risk_positive', 'risk_mixed', 'risk_negative', 'score_signals']:
+                if isinstance(extracted.get(field), list):
+                    extracted[field] = json.dumps(extracted[field])
+            extracted['ppm_raw'] = ppm_raw
+            yield f'data: {json.dumps({"ok": True, "data": extracted})}\n\n'
+        except json.JSONDecodeError as e:
+            yield f'data: {json.dumps({"error": f"JSON parse error: {str(e)}"})}\n\n'
+        except Exception as e:
+            yield f'data: {json.dumps({"error": str(e)})}\n\n'
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
 @app.route('/api/ask', methods=['POST'])
 def ask():
