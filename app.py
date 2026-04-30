@@ -286,6 +286,10 @@ def seed_data(conn):
 def index():
     return send_from_directory('.', 'operand-intel.html')
 
+@app.route('/logo.png')
+def serve_logo():
+    return send_from_directory('.', 'logo.png')
+
 @app.route('/health')
 def health():
     key = os.environ.get('ANTHROPIC_API_KEY', '')

@@ -25,7 +25,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:
 .app{display:flex;height:100vh;overflow:hidden}
 .nav{width:200px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
 .nav-logo{display:flex;align-items:center;gap:10px;padding:20px 16px;border-bottom:1px solid var(--border)}
-.nav-logo-mark{width:28px;height:28px;background:var(--blue);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.nav-logo-mark{width:36px;height:36px;border-radius:6px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .nav-logo-text{font-size:13px;font-weight:600;color:var(--text)}
 .nav-menu{flex:1;padding:8px;overflow-y:auto}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r);cursor:pointer;color:var(--text2);font-size:13px;font-weight:500;transition:all var(--tr);white-space:nowrap}
@@ -200,7 +200,7 @@ td strong{color:var(--text);font-weight:600}
   <!-- Sidebar -->
   <nav class="nav">
     <div class="nav-logo">
-      <div class="nav-logo-mark">OG</div>
+      <div class="nav-logo-mark"><img src="/logo.png" style="width:36px;height:36px;object-fit:cover;border-radius:6px" alt="Operand Group"></div>
       <div class="nav-logo-text">∈ σperand</div>
     </div>
     <div class="nav-menu">
