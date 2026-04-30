@@ -406,26 +406,43 @@ def update_searcher(searcher_id):
 
 @app.route('/api/ppm/extract', methods=['POST'])
 def extract_ppm():
-    """Extract structured data from a PPM PDF using Claude (SSE streaming to survive Railway proxy timeout)."""
+    """Extract structured data from any document using Claude — PDF, DOCX, TXT, or image."""
     if 'file' not in request.files:
         return jsonify({'error': 'No file'}), 400
     f = request.files['file']
-    try:
-        import fitz  # PyMuPDF
-        doc = fitz.open(stream=f.read(), filetype='pdf')
-        pdf_text = '\n'.join(page.get_text() for page in doc)
-        doc.close()
-    except Exception as e:
-        return jsonify({'error': f'PDF read error: {e}'}), 400
+    filename = (f.filename or '').lower()
+    raw_bytes = f.read()
+    file_text = None
+    image_b64 = None
+    image_media = None
 
-    prompt = f"""You are analyzing a Private Placement Memorandum (PPM) for a search fund.
-Extract ALL of the following fields as a JSON object. Use null for any field not found.
+    if filename.endswith('.pdf'):
+        try:
+            import fitz
+            doc = fitz.open(stream=raw_bytes, filetype='pdf')
+            file_text = '\n'.join(page.get_text() for page in doc)
+            doc.close()
+        except Exception as e:
+            return jsonify({'error': f'PDF read error: {e}'}), 400
+    elif filename.endswith('.docx'):
+        try:
+            import docx, io
+            doc = docx.Document(io.BytesIO(raw_bytes))
+            file_text = '\n'.join(p.text for p in doc.paragraphs if p.text.strip())
+        except Exception:
+            file_text = raw_bytes.decode('utf-8', errors='ignore')
+    elif filename.endswith(('.png', '.jpg', '.jpeg', '.webp', '.gif')):
+        import base64
+        image_b64 = base64.standard_b64encode(raw_bytes).decode('utf-8')
+        ext = filename.rsplit('.', 1)[-1].replace('jpg', 'jpeg')
+        image_media = f'image/{ext}'
+    else:
+        file_text = raw_bytes.decode('utf-8', errors='ignore')
 
-PPM TEXT:
-{pdf_text[:40000]}
+    extraction_prompt = """Extract ALL of the following fields from this search fund document as a JSON object. Use null for any field not found.
 
 Return ONLY valid JSON with these exact keys:
-{{
+{
   "searcher_identifier": "fund/entity name",
   "searcher_name": "full name(s)",
   "llc_name": "LLC entity name",
@@ -451,23 +468,36 @@ Return ONLY valid JSON with these exact keys:
   "risk_mixed": ["list", "of", "mixed", "signals"],
   "risk_negative": ["list", "of", "risk", "flags"],
   "score_signals": [
-    {{"signal": "≥ 1 MBA", "weight": "+3", "applied": true/false}},
-    {{"signal": "Partnered team", "weight": "+2", "applied": true/false}},
-    {{"signal": "URM present", "weight": "+1", "applied": true/false}},
-    {{"signal": "PE background", "weight": "+1", "applied": true/false}},
-    {{"signal": "$500–600K target", "weight": "−2", "applied": true/false}},
-    {{"signal": "Consulting-solo penalty", "weight": "−3", "applied": true/false}},
-    {{"signal": "< $400K / ≥ $600K target", "weight": "+1", "applied": true/false}}
+    {"signal": "≥ 1 MBA", "weight": "+3", "applied": true/false},
+    {"signal": "Partnered team", "weight": "+2", "applied": true/false},
+    {"signal": "URM present", "weight": "+1", "applied": true/false},
+    {"signal": "PE background", "weight": "+1", "applied": true/false},
+    {"signal": "$500–600K target", "weight": "−2", "applied": true/false},
+    {"signal": "Consulting-solo penalty", "weight": "−3", "applied": true/false},
+    {"signal": "< $400K / ≥ $600K target", "weight": "+1", "applied": true/false}
   ],
   "overall_take": "2-3 sentence assessment",
   "sector": "primary target sector",
   "notes": "any other important observations"
-}}
+}
 
-Score calculation: sum the weights of all applied signals for headline_score.
-GREEN = score >= 4, YELLOW = score 1-3, RED = score <= 0."""
+Score calculation: sum weights of applied signals for headline_score. GREEN >= 4, YELLOW 1-3, RED <= 0."""
 
-    ppm_raw = pdf_text[:10000]
+    if image_b64:
+        messages = [{'role': 'user', 'content': [
+            {'type': 'image', 'source': {'type': 'base64', 'media_type': image_media, 'data': image_b64}},
+            {'type': 'text', 'text': extraction_prompt}
+        ]}]
+    else:
+        messages = [{'role': 'user', 'content': f"{extraction_prompt}\n\nDOCUMENT TEXT:\n{(file_text or '')[:40000]}"}]
+
+    ppm_raw = (file_text or '')[:10000]
+
+    # Pre-fetch existing searchers for smart match detection
+    conn = get_db()
+    existing = [dict(r) for r in conn.execute(
+        'SELECT id, searcher_name, llc_name, status FROM searchers').fetchall()]
+    conn.close()
 
     def generate():
         try:
@@ -475,7 +505,7 @@ GREEN = score >= 4, YELLOW = score 1-3, RED = score <= 0."""
             with client.messages.stream(
                 model='claude-sonnet-4-6',
                 max_tokens=4000,
-                messages=[{'role': 'user', 'content': prompt}]
+                messages=messages
             ) as stream:
                 for chunk in stream.text_stream:
                     chunks.append(chunk)
@@ -488,7 +518,24 @@ GREEN = score >= 4, YELLOW = score 1-3, RED = score <= 0."""
                 if isinstance(extracted.get(field), list):
                     extracted[field] = json.dumps(extracted[field])
             extracted['ppm_raw'] = ppm_raw
-            yield f'data: {json.dumps({"ok": True, "data": extracted})}\n\n'
+
+            # Smart match: look for existing searcher with similar name
+            match = None
+            name = (extracted.get('searcher_name') or '').lower().strip()
+            llc = (extracted.get('llc_name') or '').lower().strip()
+            if name:
+                name_parts = name.split()
+                for ex in existing:
+                    ex_name = (ex.get('searcher_name') or '').lower()
+                    ex_llc = (ex.get('llc_name') or '').lower()
+                    if (name and name in ex_name) or (ex_name and ex_name in name) or \
+                       (llc and llc in ex_llc) or \
+                       (len(name_parts) >= 2 and name_parts[0] in ex_name and name_parts[-1] in ex_name):
+                        match = {'id': ex['id'], 'searcher_name': ex['searcher_name'],
+                                 'llc_name': ex.get('llc_name'), 'status': ex.get('status')}
+                        break
+
+            yield f'data: {json.dumps({"ok": True, "data": extracted, "match": match})}\n\n'
         except json.JSONDecodeError as e:
             yield f'data: {json.dumps({"error": f"JSON parse error: {str(e)}"})}\n\n'
         except Exception as e:
@@ -1065,6 +1112,27 @@ Specific, actionable steps to verify and extend this research: LinkedIn search t
 
     return Response(stream_with_context(stream()), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@app.route('/api/universe/heatmap')
+def universe_heatmap():
+    conn = get_db()
+    rows = conn.execute(
+        '''SELECT sector, state, COUNT(*) as n FROM deal_companies
+           WHERE sector IS NOT NULL AND state IS NOT NULL
+           GROUP BY sector, state''').fetchall()
+    conn.close()
+    matrix = {}
+    state_totals = {}
+    sector_totals = {}
+    for r in rows:
+        s, st, n = r['sector'], r['state'], r['n']
+        matrix.setdefault(s, {})[st] = n
+        state_totals[st] = state_totals.get(st, 0) + n
+        sector_totals[s] = sector_totals.get(s, 0) + n
+    top_states = [k for k, _ in sorted(state_totals.items(), key=lambda x: -x[1])[:15]]
+    top_sectors = [k for k, _ in sorted(sector_totals.items(), key=lambda x: -x[1])[:12]]
+    return jsonify({'sectors': top_sectors, 'states': top_states, 'matrix': matrix})
 
 
 @app.route('/api/universe/stats')

@@ -502,6 +502,17 @@ td strong{color:var(--text);font-weight:600}
           Export CSV
         </button>
       </div>
+      <!-- Sector Heatmap -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:18px;overflow:hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleHeatmap()">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Sector × State Heatmap</div>
+          <span id="heatmap-chevron" style="color:var(--text3);font-size:12px">▼</span>
+        </div>
+        <div id="heatmap-panel" style="display:none;padding:16px;overflow-x:auto">
+          <div id="heatmap-grid">Loading…</div>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <table class="data-table">
           <thead><tr>
@@ -527,9 +538,22 @@ td strong{color:var(--text);font-weight:600}
              ondragleave="this.classList.remove('drag')"
              ondrop="handlePPMDrop(event)">
           <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--text3);margin:0 auto 12px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
-          <h3>Drop PPM PDF here or click to browse</h3>
-          <p style="margin-top:6px">Claude will read the full document and extract demographic data, risk signals, and the outcome scorecard automatically.</p>
-          <input type="file" id="ppm-file" accept=".pdf" style="display:none" onchange="handlePPMFile(this.files[0])">
+          <h3>Drop any document here or click to browse</h3>
+          <p style="margin-top:6px">PDF, Word (.docx), plain text, or image — Claude reads the document and extracts all data automatically. If it recognizes an existing searcher, it will ask before updating.</p>
+          <input type="file" id="ppm-file" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp" style="display:none" onchange="handlePPMFile(this.files[0])">
+        </div>
+        <div id="ppm-match-banner" style="display:none;margin-top:12px;background:var(--amber-d);border:1px solid var(--amber);border-radius:var(--r);padding:14px 16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div>
+              <span style="font-size:13px;font-weight:600;color:var(--amber)">Existing record found: </span>
+              <span id="ppm-match-name" style="font-size:13px;color:var(--text)"></span>
+              <span style="font-size:12px;color:var(--text3);margin-left:6px" id="ppm-match-status"></span>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button class="btn btn-ghost btn-sm" onclick="dismissPPMMatch()">Create new</button>
+              <button class="btn btn-sm" style="background:var(--amber);color:#000;font-weight:600" onclick="updateExistingSearcher()">Update this record</button>
+            </div>
+          </div>
         </div>
         <div id="ppm-status" style="margin-top:16px;display:none"></div>
         <div id="ppm-preview" style="margin-top:20px;display:none"></div>
@@ -1236,20 +1260,23 @@ async function analyzeSearcher(id) {
   );
 }
 
-// ── PPM Ingestion ─────────────────────────────────────────────────────────────
+// ── PPM / Document Ingestion ──────────────────────────────────────────────────
 function handlePPMDrop(e) {
   e.preventDefault();
   document.getElementById('upload-zone').classList.remove('drag');
-  const file = e.dataTransfer.files[0];
-  if (file && file.type === 'application/pdf') handlePPMFile(file);
+  var file = e.dataTransfer.files[0];
+  if (file) handlePPMFile(file);
 }
 
 async function handlePPMFile(file) {
   if (!file) return;
   var status = document.getElementById('ppm-status');
   var preview = document.getElementById('ppm-preview');
+  var matchBanner = document.getElementById('ppm-match-banner');
   status.style.display = 'block';
   preview.style.display = 'none';
+  matchBanner.style.display = 'none';
+  window._ppmMatch = null;
   status.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--text2)"><span class="spinner"></span> Reading <strong>' + file.name + '</strong> — Claude is extracting structured data…</div>';
 
   var fd = new FormData();
@@ -1273,6 +1300,13 @@ async function handlePPMFile(file) {
         var payload = JSON.parse(line.slice(6));
         if (payload.ok) {
           status.innerHTML = '<div style="color:var(--green)">✓ Extraction complete — review and save below.</div>';
+          // Show match banner if existing searcher detected
+          if (payload.match) {
+            window._ppmMatch = payload.match;
+            document.getElementById('ppm-match-name').textContent = payload.match.searcher_name;
+            document.getElementById('ppm-match-status').textContent = payload.match.status ? '(' + payload.match.status + ')' : '';
+            matchBanner.style.display = 'block';
+          }
           renderPPMPreview(payload.data);
           return;
         } else if (payload.error) {
@@ -1283,6 +1317,31 @@ async function handlePPMFile(file) {
     }
   } catch (e) {
     status.innerHTML = '<div style="color:var(--red)">Request failed: ' + e.message + '</div>';
+  }
+}
+
+function dismissPPMMatch() {
+  document.getElementById('ppm-match-banner').style.display = 'none';
+  window._ppmMatch = null;
+}
+
+async function updateExistingSearcher() {
+  var match = window._ppmMatch;
+  if (!match) return;
+  var data = { ...window._ppmData };
+  document.querySelectorAll('.ppm-field').forEach(function(el) {
+    data[el.dataset.key] = el.value;
+  });
+  delete data.id;
+  var r = await fetch('/api/searchers/' + match.id, {
+    method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  if (r.ok) {
+    document.getElementById('ppm-status').innerHTML = '<div style="color:var(--green)">✓ Updated existing record for ' + match.searcher_name + '. <span style="cursor:pointer;text-decoration:underline" onclick="showSearcherProfile(' + match.id + ')">View profile →</span></div>';
+    document.getElementById('ppm-preview').style.display = 'none';
+    document.getElementById('ppm-match-banner').style.display = 'none';
+    document.getElementById('upload-zone').style.display = 'block';
+    window._ppmMatch = null;
   }
 }
 
@@ -2097,6 +2156,51 @@ function showUniverseDetail(id) {
 
     document.getElementById('universe-detail-body').innerHTML = html;
     document.getElementById('universe-detail-modal').classList.add('open');
+  });
+}
+
+// ── Sector × State Heatmap ────────────────────────────────────────────────────
+var _heatmapLoaded = false;
+function toggleHeatmap() {
+  var panel = document.getElementById('heatmap-panel');
+  var chev = document.getElementById('heatmap-chevron');
+  var open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block';
+  chev.textContent = open ? '▼' : '▲';
+  if (!open && !_heatmapLoaded) { _heatmapLoaded = true; loadHeatmap(); }
+}
+
+function loadHeatmap() {
+  fetch('/api/universe/heatmap').then(function(r){ return r.json(); }).then(function(d) {
+    var sectors = d.sectors, states = d.states, matrix = d.matrix;
+    // Find max for color scale
+    var max = 0;
+    sectors.forEach(function(s) { states.forEach(function(st) { var v = (matrix[s]||{})[st]||0; if(v>max) max=v; }); });
+
+    var html = '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:11px">';
+    // Header row
+    html += '<thead><tr><th style="padding:6px 10px;text-align:left;color:var(--text3);font-weight:600;letter-spacing:.04em;border-bottom:1px solid var(--border);white-space:nowrap;min-width:140px">Sector</th>';
+    states.forEach(function(st) {
+      html += '<th style="padding:6px 8px;text-align:center;color:var(--text3);font-weight:600;border-bottom:1px solid var(--border);min-width:38px">' + st + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    sectors.forEach(function(s) {
+      html += '<tr>';
+      html += '<td style="padding:7px 10px;color:var(--text2);font-weight:500;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border)">' + s + '</td>';
+      states.forEach(function(st) {
+        var v = (matrix[s]||{})[st] || 0;
+        var intensity = max > 0 ? v / max : 0;
+        var alpha = v === 0 ? 0 : (0.08 + intensity * 0.72);
+        var textColor = intensity > 0.5 ? 'rgba(59,130,246,1)' : (v > 0 ? 'var(--text2)' : 'var(--text3)');
+        html += '<td style="padding:7px 8px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);background:rgba(59,130,246,' + alpha.toFixed(2) + ');color:' + textColor + ';font-weight:' + (v > 0 ? '600' : '400') + '">' + (v || '') + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('heatmap-grid').innerHTML = html;
+  }).catch(function(e) {
+    document.getElementById('heatmap-grid').innerHTML = '<span style="color:var(--red)">Error: ' + e.message + '</span>';
   });
 }
 
